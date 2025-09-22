@@ -11,13 +11,17 @@ from dataclasses import dataclass
 
 @dataclass
 class DocMeta:
-    """Document metadata from Crossref/OpenAlex."""
+    """Document metadata from Crossref/OpenAlex/Unpaywall."""
     title: Optional[str]
     authors: List[str]          # ["Surname, Given", ...]
     year: Optional[int]
     doi: Optional[str]
     source: str                 # file path
     start_page: Optional[int] = None  # page offset if citation has page range (e.g., 300-314)
+    venue: Optional[str] = None       # journal/conference name from OpenAlex
+    publisher: Optional[str] = None   # publisher from OpenAlex
+    concepts: Optional[List[str]] = None        # concept tags from OpenAlex
+    oa_url: Optional[str] = None      # verified open access URL from Unpaywall/OpenAlex
 
 
 @dataclass
