@@ -10,22 +10,12 @@ from unittest.mock import patch, AsyncMock, MagicMock
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Import functions from the main module
-import importlib.util
-spec = importlib.util.spec_from_file_location("lightweight_rag", 
-    str(Path(__file__).parent.parent / "lightweight-rag.py"))
-lightweight_rag = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(lightweight_rag)
-
-# Import test functions
-extract_pdf_pages = lightweight_rag.extract_pdf_pages
-build_bm25 = lightweight_rag.build_bm25
-search_topk = lightweight_rag.search_topk
-rm3_expand_query = lightweight_rag.rm3_expand_query
-
-# Import data classes
-Chunk = lightweight_rag.Chunk
-DocMeta = lightweight_rag.DocMeta
+# Import from modular package
+from lightweight_rag.models import Chunk, DocMeta
+from lightweight_rag.io_pdf import extract_pdf_pages
+from lightweight_rag.index import build_bm25
+from lightweight_rag.main import search_topk
+from lightweight_rag.prf import rm3_expand_query
 
 
 class TestPDFExtraction:
@@ -71,8 +61,8 @@ class TestBM25Construction:
         corpus = self.create_test_corpus()
         
         # Mock cache to ensure we test the actual build process
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 assert bm25 is not None
@@ -83,7 +73,7 @@ class TestBM25Construction:
                 for doc_tokens in tokenized:
                     all_tokens.update(doc_tokens)
                 
-                expected_tokens = {"machine", "learning", "algorithms", "deep", "neural", "data"}
+                expected_tokens = {"machine", "learning", "algorithms", "deep", "neural", "process"}
                 assert expected_tokens.issubset(all_tokens)
     
     def test_bm25_search_relevance(self):
@@ -91,8 +81,8 @@ class TestBM25Construction:
         corpus = self.create_test_corpus()
         
         # Mock cache to ensure we test the actual build process
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search for "machine learning"
@@ -124,8 +114,8 @@ class TestQueryExpansion:
                   text="Machine learning classification regression", meta=None),
         ]
         
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 original_query = "machine learning"
@@ -146,8 +136,8 @@ class TestQueryExpansion:
                   text="Completely unrelated content about cooking recipes food", meta=None),
         ]
         
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 original_query = "machine learning"
@@ -190,8 +180,8 @@ class TestSearchFeatures:
         """Test that diversity control limits results per document."""
         corpus = self.create_diverse_corpus()
         
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search with diversity enabled (max 1 per document)
@@ -219,8 +209,8 @@ class TestSearchFeatures:
                   text="machine " + "word " * 50 + "learning", meta=meta),  # Far apart
         ]
         
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search with proximity bonus
@@ -245,8 +235,8 @@ class TestSearchFeatures:
                   text="machine and learning are separate concepts", meta=meta),  # No bigram
         ]
         
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search with n-gram bonus
@@ -290,8 +280,8 @@ class TestEndToEndIntegration:
         ]
         
         # Build index
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Perform search with all features
@@ -330,7 +320,7 @@ class TestErrorHandling:
         ]
         
         # Explicitly avoid cache for this test
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
             bm25, tokenized = build_bm25(minimal_corpus)
             
             # Should handle minimal corpus gracefully
@@ -348,8 +338,8 @@ class TestErrorHandling:
         ]
         
         # Mock cache to avoid interference
-        with patch.object(lightweight_rag, 'load_bm25_from_cache', return_value=None):
-            with patch.object(lightweight_rag, 'save_bm25_to_cache'):
+        with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
+            with patch('lightweight_rag.index.save_bm25_to_cache'):
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Test with empty query

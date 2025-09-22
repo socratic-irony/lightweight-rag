@@ -35,13 +35,13 @@ A fast, minimal PDF → BM25 → top-k retrieval system with smart caching, quer
 
 ```bash
 # Search your PDF collection
-python lightweight-rag.py --query "machine learning algorithms"
+python rag.py --query "machine learning algorithms"
 
 # Use a specific directory
-python lightweight-rag.py --pdf_dir ./research_papers --query "deep learning"
+python rag.py --pdf_dir ./research_papers --query "deep learning"
 
 # Enable query expansion for better recall
-python lightweight-rag.py --rm3 --query "neural networks"
+python rag.py --rm3 --query "neural networks"
 ```
 
 ### Example Output
@@ -94,7 +94,7 @@ This repository is optimized for GitHub Codespaces development:
 1. Click the Codespaces badge above or create a new codespace from the repository
 2. Wait for the container to build and dependencies to install (~2-3 minutes)
 3. Add your PDFs to the `pdfs/` directory
-4. Run: `python lightweight-rag.py --query "your search query"`
+4. Run: `python rag.py --query "your search query"`
 
 The devcontainer configuration ensures optimal performance and includes all necessary tools for development and testing.
 
@@ -150,7 +150,7 @@ export RAG_PRF_ENABLED="true"
 
 ### Command Line Options
 ```bash
-python lightweight-rag.py \
+python rag.py \
   --pdf_dir ./papers \
   --k 10 \
   --rm3 \
