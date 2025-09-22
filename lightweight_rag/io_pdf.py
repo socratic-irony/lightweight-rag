@@ -36,7 +36,8 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
 
 async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None, 
                      cache_seconds: int = 604800, 
-                     max_concurrent_api: int = 5) -> List[Chunk]:
+                     max_concurrent_api: int = 5,
+                     citation_config: Optional[dict] = None) -> List[Chunk]:
     """Build corpus by extracting text from all PDFs in directory."""
     import httpx
     from .performance import process_with_thread_pool, get_optimal_worker_count
@@ -102,16 +103,30 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     doi_meta_map = {}
     if dois_to_fetch:
         print(f"Fetching metadata for {len(dois_to_fetch)} DOIs...")
-        from .cite import batch_crossref_lookup
+        
+        # Use configuration or defaults
+        if citation_config is None:
+            citation_config = {
+                "crossref": True,
+                "openalex": True, 
+                "unpaywall": False,
+                "unpaywall_email": None
+            }
+        
+        from .cite import batch_enriched_lookup
         
         async with httpx.AsyncClient() as client:
-            crossref_results = await batch_crossref_lookup(
-                client, dois_to_fetch, cache_seconds, max_concurrent_api
+            enriched_results = await batch_enriched_lookup(
+                client, dois_to_fetch, cache_seconds, max_concurrent_api,
+                use_crossref=citation_config.get("crossref", True),
+                use_openalex=citation_config.get("openalex", True),
+                use_unpaywall=citation_config.get("unpaywall", False),
+                unpaywall_email=citation_config.get("unpaywall_email", "anonymous@example.com")
             )
             
-            for doi, crossref_meta in zip(dois_to_fetch, crossref_results):
-                if crossref_meta:
-                    doi_meta_map[doi] = crossref_meta
+            for doi, enriched_meta in zip(dois_to_fetch, enriched_results):
+                if enriched_meta:
+                    doi_meta_map[doi] = enriched_meta
 
     # Build corpus with fetched metadata
     corpus = []
@@ -125,11 +140,15 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
         
         # Update metadata with fetched info
         if meta.doi and meta.doi in doi_meta_map:
-            crossref_meta = doi_meta_map[meta.doi]
-            meta.title = crossref_meta.title
-            meta.authors = crossref_meta.authors
-            meta.year = crossref_meta.year
-            meta.start_page = crossref_meta.start_page
+            enriched_meta = doi_meta_map[meta.doi]
+            meta.title = enriched_meta.title
+            meta.authors = enriched_meta.authors
+            meta.year = enriched_meta.year
+            meta.start_page = enriched_meta.start_page
+            meta.venue = enriched_meta.venue
+            meta.publisher = enriched_meta.publisher
+            meta.concepts = enriched_meta.concepts
+            meta.oa_url = enriched_meta.oa_url
 
         # Create chunks for each page
         for page_data in pages:

@@ -125,7 +125,8 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         pdf_dir,
         max_workers=cfg["performance"]["pdf_thread_workers"],
         cache_seconds=cfg["citations"]["cache_seconds"],
-        max_concurrent_api=cfg["performance"]["api_semaphore_size"]
+        max_concurrent_api=cfg["performance"]["api_semaphore_size"],
+        citation_config=cfg["citations"]
     )
     
     if not corpus:
