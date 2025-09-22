@@ -1,8 +1,10 @@
 Here’s a focused roadmap with concrete refactors, a config system, and targeted upgrades that keep the project fast, lean, and reliable.
 
-1) Centralize settings in a config
+1) ✅ **COMPLETED** - Centralize settings in a config
 
 Move all knobs into a single config file with clear precedence: defaults → file (YAML/TOML) → env vars → CLI flags.
+
+**Status**: Implemented with full YAML config system, environment variable support, and CLI overrides. All settings can now be configured via `config.yaml` file with proper precedence handling.
 
 Example config.yaml
 

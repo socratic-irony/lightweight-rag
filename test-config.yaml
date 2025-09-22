@@ -1,6 +1,0 @@
-rerank:
-  final_top_k: 3  # Override to return only 3 results instead of 8
-
-bonuses:
-  proximity:
-    enabled: false  # Disable proximity bonus
