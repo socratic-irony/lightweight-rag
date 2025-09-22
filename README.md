@@ -132,16 +132,8 @@ python lightweight-rag.py \
   --ngram_lambda 0.15
 ```
 
-## 🏗️ Architecture
+## 🏗️ Key Components
 
-### Processing Pipeline
-```
-PDFs → Text Extraction → Chunking → BM25 Index → Query Processing → Ranking → Results
-  ↓           ↓              ↓           ↓            ↓             ↓          ↓
-Cache      Metadata      Windowing   Caching    Expansion    Reranking   Citations
-```
-
-### Key Components
 - **Ingestion**: PyMuPDF for fast, accurate PDF text extraction
 - **Indexing**: BM25 with configurable parameters and intelligent caching
 - **Search**: Multi-stage ranking with lexical → bonus → semantic → diversity
@@ -170,33 +162,7 @@ python -m pytest tests/test_core_functions.py -v
 python -m pytest tests/test_integration.py -v
 ```
 
-## 📊 Performance
-
-### Benchmarks (on academic paper corpus)
-- **Cold start**: ~2-3 seconds for 100 PDFs
-- **Warm cache**: ~200ms for searches
-- **Memory usage**: ~50MB base + ~1MB per 100 documents
-- **Accuracy**: 85-92% relevant results in top-5 (domain-dependent)
-
-### Scaling Guidelines
-- **Small collections** (< 1K papers): All features enabled
-- **Medium collections** (1K-10K papers): Consider disabling semantic reranking
-- **Large collections** (> 10K papers): Use proximity/n-gram bonuses only
-
 ## 🔧 Advanced Usage
-
-### Custom Patterns
-Add domain-specific answer patterns:
-```yaml
-bonuses:
-  patterns:
-    patterns: [
-      " we hypothesize ",
-      " our approach ",
-      " the method ",
-      " experimental results "
-    ]
-```
 
 ### Batch Processing
 ```python
@@ -206,14 +172,6 @@ from lightweight_rag import query_pdfs
 config = load_full_config("config.yaml")
 results = query_pdfs("your query", config)
 ```
-
-## 🤝 Contributing
-
-We welcome contributions! Areas of focus:
-- 📈 Performance optimizations
-- 🧪 Additional test coverage  
-- 📚 Domain-specific improvements
-- 🔧 New ranking features
 
 ## 📄 License
 
