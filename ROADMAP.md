@@ -1,13 +1,16 @@
-Here’s a focused roadmap with concrete refactors, a config system, and targeted upgrades that keep the project fast, lean, and reliable.
+# Lightweight RAG Roadmap
 
-1) ✅ **COMPLETED** - Centralize settings in a config
+Here's a focused roadmap with concrete refactors, a config system, and targeted upgrades that keep the project fast, lean, and reliable.
+
+## 1) ✅ **COMPLETED** - Centralize settings in a config
 
 Move all knobs into a single config file with clear precedence: defaults → file (YAML/TOML) → env vars → CLI flags.
 
 **Status**: Implemented with full YAML config system, environment variable support, and CLI overrides. All settings can now be configured via `config.yaml` file with proper precedence handling.
 
-Example config.yaml
+### Example config.yaml
 
+```yaml
 paths:
   pdf_dir: "pdfs"
   cache_dir: ".raq_cache"
@@ -68,9 +71,11 @@ output:
   max_snippet_chars: 900
   pretty_json: true
   include_scores: true
+```
 
-Loader pattern (minimal)
+### Loader pattern (minimal)
 
+```python
 # pip install pyyaml
 import os, yaml
 from argparse import Namespace
@@ -86,11 +91,15 @@ def override(cfg: dict, cli: Namespace) -> dict:
     # Apply CLI/env overrides onto cfg; skip empty values
     # Example: if cli.k is set, set cfg["rerank"]["final_top_k"] = cli.k
     return cfg
+```
 
-2) Modularize the codebase
+## 2) ✅ **COMPLETED** - Modularize the codebase
 
 Split the current script into small modules (each ≤200 lines). Keep import times low.
 
+### Module Structure
+
+```
 lightweight_rag/
   __init__.py
   config.py         # load/merge config; env and CLI precedence
@@ -103,50 +112,60 @@ lightweight_rag/
   cite.py           # DOI extraction, Crossref/OpenAlex/Unpaywall, caches
   cli.py            # argument parsing, invokes main()
   main.py           # pipeline orchestration
+```
 
-Benefits: faster cold-start (only import what’s needed), easier testing, and clearer ownership of each concern.
+**Benefits**: faster cold-start (only import what's needed), easier testing, and clearer ownership of each concern.
 
-3) Performance and robustness improvements
-	•	Tokenization: keep the current regex for speed; expose it in config for experimentation.
-	•	Caching:
-	•	Add a metadata cache (dois.json) keyed by DOI with Crossref/OpenAlex/Unpaywall payloads and an updated_at timestamp. Respect citations.cache_seconds.
-	•	Store per-PDF text hash (e.g., SHA256 of concatenated page text) in the manifest to avoid re-parsing changed PDFs with the same filename/mtime.
-	•	Concurrency:
-	•	Batch Crossref/OpenAlex calls with a small async semaphore (e.g., 5 in-flight).
-	•	Optionally parallelize PDF parsing with concurrent.futures.ThreadPoolExecutor (cap workers to number of cores).
-	•	Determinism:
-	•	Seed numpy if you add any stochastic rerankers.
-	•	When ties occur, prefer earlier pages and then lexicographic file order.
+## 3) Performance and robustness improvements
 
-4) Retrieval quality without heavy models
-	•	Better PRF (still cheap):
-	•	Filter feedback terms by document frequency (drop terms present in >25% of chunks).
-	•	Restrict to alphabetic tokens of length ≥3.
-	•	Impose a per-term cap to keep expansions short.
-	•	Enhanced lexical signals:
-	•	Phrase bigram whitelist based on the query (we already add n-grams; consider giving bigrams 2× the weight of unigrams when both present).
-	•	Heading/abstract weighting: if you detect “Abstract” or large-font headings (PyMuPDF font size heuristic), multiply those chunk scores by, say, 1.15.
-	•	RRF (reciprocal rank fusion) across variants:
-	•	Fuse rankings from: (a) raw query, (b) RM3-expanded, (c) phrase-boosted. This is ~20 lines and consistently lifts recall with negligible cost.
+### Tokenization
+- Keep the current regex for speed; expose it in config for experimentation.
 
-5) Citation enrichment (Crossref, OpenAlex, Unpaywall)
+### Caching
+- Add a metadata cache (dois.json) keyed by DOI with Crossref/OpenAlex/Unpaywall payloads and an updated_at timestamp. Respect citations.cache_seconds.
+- Store per-PDF text hash (e.g., SHA256 of concatenated page text) in the manifest to avoid re-parsing changed PDFs with the same filename/mtime.
+
+### Concurrency
+- Batch Crossref/OpenAlex calls with a small async semaphore (e.g., 5 in-flight).
+- Optionally parallelize PDF parsing with concurrent.futures.ThreadPoolExecutor (cap workers to number of cores).
+
+### Determinism
+- Seed numpy if you add any stochastic rerankers.
+- When ties occur, prefer earlier pages and then lexicographic file order.
+
+## 4) Retrieval quality without heavy models
+
+### Better PRF (still cheap)
+- Filter feedback terms by document frequency (drop terms present in >25% of chunks).
+- Restrict to alphabetic tokens of length ≥3.
+- Impose a per-term cap to keep expansions short.
+
+### Enhanced lexical signals
+- Phrase bigram whitelist based on the query (we already add n-grams; consider giving bigrams 2× the weight of unigrams when both present).
+- Heading/abstract weighting: if you detect "Abstract" or large-font headings (PyMuPDF font size heuristic), multiply those chunk scores by, say, 1.15.
+
+### RRF (reciprocal rank fusion) across variants
+- Fuse rankings from: (a) raw query, (b) RM3-expanded, (c) phrase-boosted. This is ~20 lines and consistently lifts recall with negligible cost.
+
+## 5) Citation enrichment (Crossref, OpenAlex, Unpaywall)
 
 Keep it simple and cached:
 
-Data flow
-	1.	DOI sniff from first 2 pages (you have this).
-	2.	Crossref /works/{doi}
-	•	Use message.page to set start_page (you did this).
-	•	Fall back to issued or published-online/print for year.
-	3.	OpenAlex /works/https://doi.org/DOI
-	•	Fill missing fields: venue, publisher, concept tags.
-	•	Add canonical OA URL if present (OpenAlex mirrors Unpaywall signals).
-	4.	Unpaywall /v2/{doi}?email=... (optional)
-	•	Get best_oa_location.url_for_pdf for a verified OA link.
+### Data flow
+1. DOI sniff from first 2 pages (you have this).
+2. Crossref /works/{doi}
+   - Use message.page to set start_page (you did this).
+   - Fall back to issued or published-online/print for year.
+3. OpenAlex /works/https://doi.org/DOI
+   - Fill missing fields: venue, publisher, concept tags.
+   - Add canonical OA URL if present (OpenAlex mirrors Unpaywall signals).
+4. Unpaywall /v2/{doi}?email=... (optional)
+   - Get best_oa_location.url_for_pdf for a verified OA link.
 
-Caching
-	•	dois.json:
+### Caching
+- dois.json:
 
+```json
 {
   "10.xxxxx/abc": {
     "crossref": {...}, "openalex": {...}, "unpaywall": {...},
@@ -154,40 +173,46 @@ Caching
     "title": "...", "updated_at": "2025-09-21T12:34:56Z"
   }
 }
+```
 
+- Refresh if stale by citations.cache_seconds.
 
-	•	Refresh if stale by citations.cache_seconds.
+## 6) Configurable chunking
 
-6) Configurable chunking
+Add a light sentence splitter to enable "sentence" or "sliding" windows:
+- Fast option: regex split on [.!?] with heuristics to avoid abbreviations.
+- Optional dependency: syntok (very small, accurate) for sentence boundaries.
+- Keep metadata: (file, page, window_start_char, window_end_char).
+- Configure window_chars and overlap_chars in indexing.
 
-Add a light sentence splitter to enable “sentence” or “sliding” windows:
-	•	Fast option: regex split on [.!?] with heuristics to avoid abbreviations.
-	•	Optional dependency: syntok (very small, accurate) for sentence boundaries.
-	•	Keep metadata: (file, page, window_start_char, window_end_char).
-	•	Configure window_chars and overlap_chars in indexing.
+## 7) Testing and evaluation
 
-7) Testing and evaluation
-	•	Unit tests for:
-	•	DOI regex and Crossref page-offset logic.
-	•	Proximity and n-gram bonuses (deterministic inputs).
-	•	Diversity selection invariants (max per doc, monotonicity).
-	•	Golden tests:
-	•	For a small “fixtures” folder, assert that a fixed query returns specific citations (filenames + pages) under a fixed config.
-	•	Perf guardrails:
-	•	Add a simple timer report per stage (parse, index, search, rerank, enrich) to catch regressions.
+### Unit tests for:
+- DOI regex and Crossref page-offset logic.
+- Proximity and n-gram bonuses (deterministic inputs).
+- Diversity selection invariants (max per doc, monotonicity).
 
-8) Logging/telemetry (minimal)
-	•	Structured logs (stdout JSON) at INFO for stage boundaries and counts:
-	•	{"stage":"index","chunks":1234,"elapsed_ms":...}
-	•	{"stage":"rerank","candidates":120,"elapsed_ms":...}
-	•	At DEBUG, optionally dump top-terms from PRF and the bonuses applied (guarded to avoid noise).
+### Golden tests:
+- For a small "fixtures" folder, assert that a fixed query returns specific citations (filenames + pages) under a fixed config.
 
-9) API surface (optional)
+### Perf guardrails:
+- Add a simple timer report per stage (parse, index, search, rerank, enrich) to catch regressions.
+
+## 8) Logging/telemetry (minimal)
+
+### Structured logs (stdout JSON) at INFO for stage boundaries and counts:
+- `{"stage":"index","chunks":1234,"elapsed_ms":...}`
+- `{"stage":"rerank","candidates":120,"elapsed_ms":...}`
+- At DEBUG, optionally dump top-terms from PRF and the bonuses applied (guarded to avoid noise).
+
+## 9) API surface (optional)
 
 Wrap the pipeline behind a tiny function you can import elsewhere:
 
+```python
 def query_pdfs(query: str, cfg: dict) -> List[dict]:
     # returns [{text, citation, source:{file,page,doi,title}, score}, ...]
     ...
+```
 
 This lets you call it from a web UI or your Writer/Revise stage cleanly.
