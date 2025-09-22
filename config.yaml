@@ -59,3 +59,9 @@ output:
   max_snippet_chars: 900
   pretty_json: true
   include_scores: true
+
+performance:
+  api_semaphore_size: 5      # Max concurrent API calls
+  pdf_thread_workers: null   # None = auto (num_cores), or set manually
+  deterministic: true        # Enable deterministic tie-breaking
+  numpy_seed: 42            # Seed for numpy random operations

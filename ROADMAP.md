@@ -116,22 +116,24 @@ lightweight_rag/
 
 **Benefits**: faster cold-start (only import what's needed), easier testing, and clearer ownership of each concern.
 
-## 3) Performance and robustness improvements
+## 3) ✅ **COMPLETED** - Performance and robustness improvements
 
 ### Tokenization
-- Keep the current regex for speed; expose it in config for experimentation.
+- ✅ Keep the current regex for speed; expose it in config for experimentation.
 
 ### Caching
-- Add a metadata cache (dois.json) keyed by DOI with Crossref/OpenAlex/Unpaywall payloads and an updated_at timestamp. Respect citations.cache_seconds.
-- Store per-PDF text hash (e.g., SHA256 of concatenated page text) in the manifest to avoid re-parsing changed PDFs with the same filename/mtime.
+- ✅ Add a metadata cache (dois.json) keyed by DOI with Crossref/OpenAlex/Unpaywall payloads and an updated_at timestamp. Respect citations.cache_seconds.
+- ✅ Store per-PDF text hash (e.g., SHA256 of concatenated page text) in the manifest to avoid re-parsing changed PDFs with the same filename/mtime.
 
 ### Concurrency
-- Batch Crossref/OpenAlex calls with a small async semaphore (e.g., 5 in-flight).
-- Optionally parallelize PDF parsing with concurrent.futures.ThreadPoolExecutor (cap workers to number of cores).
+- ✅ Batch Crossref/OpenAlex calls with a small async semaphore (e.g., 5 in-flight).
+- ✅ Optionally parallelize PDF parsing with concurrent.futures.ThreadPoolExecutor (cap workers to number of cores).
 
 ### Determinism
-- Seed numpy if you add any stochastic rerankers.
-- When ties occur, prefer earlier pages and then lexicographic file order.
+- ✅ Seed numpy if you add any stochastic rerankers.
+- ✅ When ties occur, prefer earlier pages and then lexicographic file order.
+
+**Status**: Implemented with comprehensive performance improvements including configurable tokenization patterns, enhanced DOI metadata caching with timestamps, concurrent API calls with semaphore limiting, optional parallel PDF processing, deterministic numpy seeding, and consistent tie-breaking for reproducible results.
 
 ## 4) Retrieval quality without heavy models
 

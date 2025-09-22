@@ -3,7 +3,7 @@
 import os
 import glob
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import fitz  # PyMuPDF
 from tqdm import tqdm
@@ -34,61 +34,122 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
     return pages
 
 
-async def build_corpus(pdf_dir: Path) -> List[Chunk]:
+async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None, 
+                     cache_seconds: int = 604800, 
+                     max_concurrent_api: int = 5) -> List[Chunk]:
     """Build corpus by extracting text from all PDFs in directory."""
     import httpx
+    from .performance import process_with_thread_pool, get_optimal_worker_count
+    from .index import (
+        load_manifest, save_manifest, load_corpus_from_cache, 
+        save_corpus_to_cache, manifest_for_dir_with_text_hash
+    )
     
-    pdf_files = glob.glob(str(pdf_dir / "*.pdf"))
+    pdf_files = list(pdf_dir.glob("*.pdf"))
     if not pdf_files:
         print(f"No PDFs found in {pdf_dir}")
         return []
 
+    # Check if we can load from cache
+    cached_corpus = load_corpus_from_cache()
+    cached_manifest = load_manifest()
+    current_manifest = manifest_for_dir(pdf_dir)
+    
+    if cached_corpus and cached_manifest == current_manifest:
+        print(f"Loaded {len(cached_corpus)} chunks from cache")
+        return cached_corpus
+
+    print(f"Processing {len(pdf_files)} PDFs...")
+    
+    # Extract text from PDFs (potentially in parallel)
+    if max_workers is None:
+        max_workers = get_optimal_worker_count()
+    
+    if max_workers > 1 and len(pdf_files) > 1:
+        print(f"Using {max_workers} workers for PDF processing")
+        pdf_data_list = process_with_thread_pool(
+            extract_pdf_pages, [str(f) for f in pdf_files], max_workers
+        )
+    else:
+        pdf_data_list = [extract_pdf_pages(str(f)) for f in tqdm(pdf_files, desc="Processing PDFs")]
+    
+    # Collect all DOIs for batch processing
+    dois_to_fetch = []
+    pdf_metadata = []
+    
+    for i, (pdf_file, pages) in enumerate(zip(pdf_files, pdf_data_list)):
+        if not pages:
+            pdf_metadata.append(None)
+            continue
+            
+        # Look for DOI in first 2 pages
+        first_pages_text = " ".join([p["text"] for p in pages[:2]])
+        doi = find_doi_in_text(first_pages_text)
+        
+        meta = DocMeta(
+            title=None,
+            authors=[],
+            year=None,
+            doi=doi,
+            source=os.path.basename(str(pdf_file))
+        )
+        
+        pdf_metadata.append((meta, pages))
+        if doi:
+            dois_to_fetch.append(doi)
+    
+    # Batch fetch metadata for all DOIs
+    doi_meta_map = {}
+    if dois_to_fetch:
+        print(f"Fetching metadata for {len(dois_to_fetch)} DOIs...")
+        from .cite import batch_crossref_lookup
+        
+        async with httpx.AsyncClient() as client:
+            crossref_results = await batch_crossref_lookup(
+                client, dois_to_fetch, cache_seconds, max_concurrent_api
+            )
+            
+            for doi, crossref_meta in zip(dois_to_fetch, crossref_results):
+                if crossref_meta:
+                    doi_meta_map[doi] = crossref_meta
+
+    # Build corpus with fetched metadata
     corpus = []
     doc_id = 0
+    
+    for pdf_file, pdf_data in zip(pdf_files, pdf_metadata):
+        if pdf_data is None:
+            continue
+            
+        meta, pages = pdf_data
+        
+        # Update metadata with fetched info
+        if meta.doi and meta.doi in doi_meta_map:
+            crossref_meta = doi_meta_map[meta.doi]
+            meta.title = crossref_meta.title
+            meta.authors = crossref_meta.authors
+            meta.year = crossref_meta.year
+            meta.start_page = crossref_meta.start_page
 
-    async with httpx.AsyncClient() as client:
-        for pdf_file in tqdm(pdf_files, desc="Processing PDFs"):
-            pages = extract_pdf_pages(pdf_file)
-            if not pages:
-                continue
+        # Create chunks for each page
+        for page_data in pages:
+            text = page_data["text"].strip()
+            if text:  # Skip empty pages
+                chunk = Chunk(
+                    doc_id=doc_id,
+                    source=os.path.basename(str(pdf_file)),
+                    page=page_data["page_number"],
+                    text=text,
+                    meta=meta
+                )
+                corpus.append(chunk)
 
-            # Look for DOI in first 2 pages
-            first_pages_text = " ".join([p["text"] for p in pages[:2]])
-            doi = find_doi_in_text(first_pages_text)
-
-            # Fetch metadata if DOI found
-            meta = DocMeta(
-                title=None,
-                authors=[],
-                year=None,
-                doi=doi,
-                source=os.path.basename(pdf_file)
-            )
-
-            if doi:
-                # Import here to avoid circular dependency
-                from .cite import crossref_meta_for_doi
-                crossref_meta = await crossref_meta_for_doi(client, doi)
-                if crossref_meta:
-                    meta.title = crossref_meta.title
-                    meta.authors = crossref_meta.authors
-                    meta.year = crossref_meta.year
-                    meta.start_page = crossref_meta.start_page
-
-            # Create chunks for each page
-            for page_data in pages:
-                text = page_data["text"].strip()
-                if text:  # Skip empty pages
-                    chunk = Chunk(
-                        doc_id=doc_id,
-                        source=os.path.basename(pdf_file),
-                        page=page_data["page_number"],
-                        text=text,
-                        meta=meta
-                    )
-                    corpus.append(chunk)
-
-            doc_id += 1
+        doc_id += 1
+    
+    # Cache the results
+    save_corpus_to_cache(corpus)
+    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, corpus)
+    save_manifest(enhanced_manifest)
 
     print(f"Extracted {len(corpus)} chunks from {len(pdf_files)} PDFs")
     return corpus
