@@ -5,8 +5,10 @@ import os
 import json
 import pickle
 import gzip
+import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timezone
 
 from rank_bm25 import BM25Okapi
 
@@ -22,6 +24,7 @@ CORPUS_CACHE = CACHE_DIR / "corpus.jsonl.gz"
 BM25_CACHE = CACHE_DIR / "bm25.pkl.gz"
 MANIFEST_CACHE = CACHE_DIR / "manifest.json"
 TOKENIZED_CACHE = CACHE_DIR / "tokenized.pkl.gz"
+DOI_CACHE = CACHE_DIR / "dois.json"
 
 
 # -------------------------
@@ -37,14 +40,14 @@ def tokenize(s: str, pattern: str = r"[A-Za-z0-9]+") -> List[str]:
 # BM25 Building
 # -------------------------
 
-def build_bm25(corpus: List[Chunk]) -> Tuple[BM25Okapi, List[List[str]]]:
+def build_bm25(corpus: List[Chunk], token_pattern: str = r"[A-Za-z0-9]+") -> Tuple[BM25Okapi, List[List[str]]]:
     """Build BM25 index from corpus, with caching."""
     cached_result = load_bm25_from_cache()
     if cached_result is not None:
         return cached_result
     
     print("Building BM25 index...")
-    tokenized = [tokenize(chunk.text) for chunk in corpus]
+    tokenized = [tokenize(chunk.text, token_pattern) for chunk in corpus]
     bm25 = BM25Okapi(tokenized)
     
     save_bm25_to_cache(bm25, tokenized)
@@ -58,13 +61,14 @@ def build_bm25(corpus: List[Chunk]) -> Tuple[BM25Okapi, List[List[str]]]:
 
 def update_cache_paths(cache_dir: Path) -> None:
     """Update global cache paths based on config."""
-    global CACHE_DIR, CORPUS_CACHE, BM25_CACHE, MANIFEST_CACHE, TOKENIZED_CACHE
+    global CACHE_DIR, CORPUS_CACHE, BM25_CACHE, MANIFEST_CACHE, TOKENIZED_CACHE, DOI_CACHE
     CACHE_DIR = cache_dir
     CACHE_DIR.mkdir(exist_ok=True)
     CORPUS_CACHE = CACHE_DIR / "corpus.jsonl.gz"
     BM25_CACHE = CACHE_DIR / "bm25.pkl.gz"
     MANIFEST_CACHE = CACHE_DIR / "manifest.json"
     TOKENIZED_CACHE = CACHE_DIR / "tokenized.pkl.gz"
+    DOI_CACHE = CACHE_DIR / "dois.json"
 
 
 def manifest_for_dir(pdf_dir: Path) -> Dict[str, Any]:
@@ -159,3 +163,111 @@ def save_bm25_to_cache(bm25: BM25Okapi, tokenized: List[List[str]]) -> None:
     data = {"bm25": bm25, "tokenized": tokenized}
     with gzip.open(BM25_CACHE, "wb") as f:
         pickle.dump(data, f)
+
+
+# -------------------------
+# DOI metadata caching
+# -------------------------
+
+def load_doi_cache() -> Dict[str, Any]:
+    """Load DOI metadata cache."""
+    if not DOI_CACHE.exists():
+        return {}
+    try:
+        with open(DOI_CACHE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_doi_cache(cache_data: Dict[str, Any]) -> None:
+    """Save DOI metadata cache."""
+    with open(DOI_CACHE, "w") as f:
+        json.dump(cache_data, f, indent=2)
+
+
+def is_doi_cache_fresh(doi: str, cache_seconds: int) -> bool:
+    """Check if DOI cache entry is still fresh."""
+    cache_data = load_doi_cache()
+    if doi not in cache_data:
+        return False
+    
+    entry = cache_data[doi]
+    if "updated_at" not in entry:
+        return False
+    
+    try:
+        updated_at = datetime.fromisoformat(entry["updated_at"].replace("Z", "+00:00"))
+        age = (datetime.now(timezone.utc) - updated_at).total_seconds()
+        return age < cache_seconds
+    except (ValueError, KeyError):
+        return False
+
+
+def cache_doi_metadata(doi: str, crossref_data: Optional[Dict[str, Any]] = None, 
+                      openalex_data: Optional[Dict[str, Any]] = None,
+                      unpaywall_data: Optional[Dict[str, Any]] = None,
+                      extra_fields: Optional[Dict[str, Any]] = None) -> None:
+    """Cache DOI metadata with timestamp."""
+    cache_data = load_doi_cache()
+    
+    entry = cache_data.get(doi, {})
+    if crossref_data:
+        entry["crossref"] = crossref_data
+    if openalex_data:
+        entry["openalex"] = openalex_data
+    if unpaywall_data:
+        entry["unpaywall"] = unpaywall_data
+    if extra_fields:
+        entry.update(extra_fields)
+    
+    entry["updated_at"] = datetime.now(timezone.utc).isoformat()
+    cache_data[doi] = entry
+    
+    save_doi_cache(cache_data)
+
+
+def get_cached_doi_metadata(doi: str) -> Optional[Dict[str, Any]]:
+    """Get cached DOI metadata if available."""
+    cache_data = load_doi_cache()
+    return cache_data.get(doi)
+
+
+# -------------------------
+# Enhanced manifest with text hashing
+# -------------------------
+
+def compute_text_hash(text_content: str) -> str:
+    """Compute SHA256 hash of text content for change detection."""
+    return hashlib.sha256(text_content.encode('utf-8')).hexdigest()
+
+
+def manifest_for_dir_with_text_hash(pdf_dir: Path, corpus: Optional[List[Chunk]] = None) -> Dict[str, Any]:
+    """Generate manifest with file stats and text hashes for better cache invalidation."""
+    manifest = {}
+    
+    # Create a mapping of file paths to text content from corpus
+    text_by_file = {}
+    if corpus:
+        for chunk in corpus:
+            file_path = chunk.source
+            if file_path not in text_by_file:
+                text_by_file[file_path] = ""
+            text_by_file[file_path] += chunk.text
+    
+    for pdf_file in pdf_dir.glob("*.pdf"):
+        stat = pdf_file.stat()
+        file_path = str(pdf_file)
+        
+        entry = {
+            "size": stat.st_size,
+            "mtime": stat.st_mtime
+        }
+        
+        # Add text hash if we have the content
+        if file_path in text_by_file:
+            entry["text_hash"] = compute_text_hash(text_by_file[file_path])
+        
+        manifest[file_path] = entry
+    
+    return manifest

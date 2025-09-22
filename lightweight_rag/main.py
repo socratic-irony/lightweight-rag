@@ -108,20 +108,33 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
     """
     Run the complete RAG pipeline with the given configuration and query.
     """
+    # Initialize performance settings
+    from .performance import seed_numpy, sort_results_deterministically
+    
+    # Seed numpy for deterministic behavior
+    if cfg["performance"]["deterministic"] and cfg["performance"]["numpy_seed"]:
+        seed_numpy(cfg["performance"]["numpy_seed"])
+    
     # Update cache paths from config
     cache_dir = Path(cfg["paths"]["cache_dir"])
     update_cache_paths(cache_dir)
     
     # Build or load corpus
     pdf_dir = Path(cfg["paths"]["pdf_dir"])
-    corpus = await build_corpus(pdf_dir)
+    corpus = await build_corpus(
+        pdf_dir,
+        max_workers=cfg["performance"]["pdf_thread_workers"],
+        cache_seconds=cfg["citations"]["cache_seconds"],
+        max_concurrent_api=cfg["performance"]["api_semaphore_size"]
+    )
     
     if not corpus:
         print("No documents found or processed.")
         return []
     
-    # Build BM25 index
-    bm25, tokenized = build_bm25(corpus)
+    # Build BM25 index with configurable token pattern
+    token_pattern = cfg["bm25"]["token_pattern"]
+    bm25, tokenized = build_bm25(corpus, token_pattern)
     print(f"Indexed {len(corpus)} chunks")
 
     # Query expansion with RM3 if enabled
@@ -156,6 +169,10 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         max_snippet_chars=cfg["output"]["max_snippet_chars"],
         include_scores=cfg["output"]["include_scores"]
     )
+    
+    # Apply deterministic sorting if enabled
+    if cfg["performance"]["deterministic"]:
+        results = sort_results_deterministically(results)
 
     return results
 
