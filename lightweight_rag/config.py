@@ -70,6 +70,7 @@ def get_default_config() -> Dict[str, Any]:
             "unpaywall": False,
             "cache_seconds": 604800,  # 7 days
             "page_offset_from_crossref": True,
+            "unpaywall_email": None,  # Required for Unpaywall API if enabled
         },
         "output": {
             "max_snippet_chars": 900,
