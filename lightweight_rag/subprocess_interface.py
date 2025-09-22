@@ -73,6 +73,9 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
     if config_data:
         cfg = merge_configs(cfg, config_data)
     
+    # Set quiet mode for subprocess usage
+    cfg["_quiet_mode"] = True
+    
     # Ensure paths exist
     pdf_dir = Path(cfg["paths"]["pdf_dir"])
     pdf_dir.mkdir(exist_ok=True)
@@ -86,8 +89,24 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
 async def process_query(query: str, config: Dict[str, Any]) -> Dict[str, Any]:
     """Process a single query and return formatted response."""
     try:
-        results = await run_rag_pipeline(config, query)
-        return create_success_response(results, query)
+        # Temporarily redirect stdout to stderr for progress messages
+        import sys
+        import os
+        from contextlib import redirect_stdout
+        
+        # Create a null device to suppress output
+        with open(os.devnull, 'w') as devnull:
+            # Redirect stdout to stderr for progress messages, but capture it
+            original_stdout = sys.stdout
+            
+            try:
+                # Redirect stdout to stderr so progress messages don't interfere with JSON
+                sys.stdout = sys.stderr
+                results = await run_rag_pipeline(config, query)
+                return create_success_response(results, query)
+            finally:
+                sys.stdout = original_stdout
+                
     except Exception as e:
         return create_error_response(str(e), query)
 
