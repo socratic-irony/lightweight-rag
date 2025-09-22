@@ -2,6 +2,7 @@
 
 import os
 import glob
+import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -10,6 +11,12 @@ from tqdm import tqdm
 
 from .models import DocMeta, Chunk, find_doi_in_text
 # Import moved inside function to avoid circular dependency
+
+
+def _print_if_not_quiet(message: str, config: Dict[str, Any] = None):
+    """Print message unless quiet mode is enabled."""
+    if config is None or not config.get("_quiet_mode", False):
+        print(message, file=sys.stderr if config and config.get("_quiet_mode") else sys.stdout)
 
 
 # -------------------------

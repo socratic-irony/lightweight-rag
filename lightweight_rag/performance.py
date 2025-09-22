@@ -70,12 +70,22 @@ def deterministic_sort_key(item: Dict[str, Any]) -> tuple:
     """
     # Extract relevant fields for sorting
     score = item.get('score', 0.0)
-    page = item.get('page', 0)
-    source = item.get('source', '')
-    doc_id = item.get('doc_id', '')
+    
+    # Handle both old flat format and new nested format
+    if 'source' in item and isinstance(item['source'], dict):
+        # New nested format: {'source': {'page': 1, 'file': 'a.pdf', 'doi': '...'}}
+        source_info = item['source']
+        page = source_info.get('page', 0)
+        source_file = source_info.get('file', '')
+        doc_id = source_info.get('doi', '')  # Use DOI as doc_id for nested format
+    else:
+        # Old flat format: {'page': 1, 'source': 'a.pdf', 'doc_id': '1'}
+        page = item.get('page', 0)
+        source_file = str(item.get('source', ''))
+        doc_id = str(item.get('doc_id', ''))
     
     # Return tuple for sorting (higher score first, then deterministic tie-breaking)
-    return (-score, page, source, doc_id)
+    return (-score, page, source_file, doc_id)
 
 
 def sort_results_deterministically(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
