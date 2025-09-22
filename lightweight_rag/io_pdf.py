@@ -43,7 +43,7 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     from .performance import process_with_thread_pool, get_optimal_worker_count
     from .index import (
         load_manifest, save_manifest, load_corpus_from_cache, 
-        save_corpus_to_cache, manifest_for_dir_with_text_hash
+        save_corpus_to_cache, manifest_for_dir_with_text_hash, manifest_for_dir
     )
     
     pdf_files = list(pdf_dir.glob("*.pdf"))
