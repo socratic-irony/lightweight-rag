@@ -76,6 +76,12 @@ def get_default_config() -> Dict[str, Any]:
             "pretty_json": True,
             "include_scores": True,
         },
+        "performance": {
+            "api_semaphore_size": 5,      # Max concurrent API calls
+            "pdf_thread_workers": None,   # None = auto (num_cores), or set manually
+            "deterministic": True,        # Enable deterministic tie-breaking
+            "numpy_seed": 42,            # Seed for numpy random operations
+        },
     }
 
 
