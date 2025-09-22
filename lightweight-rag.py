@@ -16,6 +16,8 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 from urllib.parse import quote
 
+from config import load_full_config
+
 # Optional lightweight semantic reranker (CPU)
 try:
     import numpy as np
@@ -485,37 +487,53 @@ async def main():
     load_dotenv()
 
     parser = argparse.ArgumentParser(
-        description="Quick RAQ over PDFs with BM25 (caching, RM3 PRF, proximity+ngram bonuses, diversity, optional semantic rerank, Crossref page-offset citations)."
+        description="Quick RAG over PDFs with BM25 (caching, RM3 PRF, proximity+ngram bonuses, diversity, optional semantic rerank, Crossref page-offset citations)."
     )
-    parser.add_argument("--pdf_dir", type=str, default="pdfs", help="Folder of PDFs")
-    parser.add_argument("--k", type=int, default=8, help="Top-k chunks to return (default 8)")
+    # Config system
+    parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file (default: config.yaml)")
+    
+    # Core options (can override config)
+    parser.add_argument("--pdf_dir", type=str, help="Folder of PDFs")
+    parser.add_argument("--k", type=int, help="Top-k chunks to return")
     parser.add_argument("--query", type=str, default=None, help="Query; if omitted, will prompt")
 
     # RM3
     parser.add_argument("--rm3", action="store_true", help="Enable RM3 pseudo-relevance feedback query expansion")
-    parser.add_argument("--fb_docs", type=int, default=5, help="Feedback documents for RM3")
-    parser.add_argument("--fb_terms", type=int, default=8, help="Feedback terms for RM3")
-    parser.add_argument("--alpha", type=float, default=0.6, help="Mixing weight for original query in RM3")
+    parser.add_argument("--fb_docs", type=int, help="Feedback documents for RM3")
+    parser.add_argument("--fb_terms", type=int, help="Feedback terms for RM3")
+    parser.add_argument("--alpha", type=float, help="Mixing weight for original query in RM3")
 
     # Proximity & n-grams
     parser.add_argument("--no_prox", action="store_true", help="Disable proximity bonus (enabled by default)")
-    parser.add_argument("--prox_window", type=int, default=30, help="Token window size for proximity bonus")
-    parser.add_argument("--prox_lambda", type=float, default=0.2, help="Scaling weight for proximity bonus")
-    parser.add_argument("--ngram_lambda", type=float, default=0.1, help="Weight for n-gram (bi/tri) bonus")
+    parser.add_argument("--prox_window", type=int, help="Token window size for proximity bonus")
+    parser.add_argument("--prox_lambda", type=float, help="Scaling weight for proximity bonus")
+    parser.add_argument("--ngram_lambda", type=float, help="Weight for n-gram (bi/tri) bonus")
 
     # Diversity controls
     parser.add_argument("--no_diversity", action="store_true", help="Disable diversity bonus (allow many hits from same document)")
-    parser.add_argument("--div_lambda", type=float, default=0.3, help="Diversity penalty per additional hit from the same document")
-    parser.add_argument("--max_per_doc", type=int, default=2, help="Maximum results from the same document")
+    parser.add_argument("--div_lambda", type=float, help="Diversity penalty per additional hit from the same document")
+    parser.add_argument("--max_per_doc", type=int, help="Maximum results from the same document")
 
     # Semantic rerank
     parser.add_argument("--semantic_rerank", action="store_true", help="Enable CPU-only sentence-transformers rerank of candidates")
-    parser.add_argument("--semantic_topn", type=int, default=80, help="Number of top candidates to rerank semantically")
+    parser.add_argument("--semantic_topn", type=int, help="Number of top candidates to rerank semantically")
 
     args = parser.parse_args()
+    
+    # Load configuration with full precedence
+    cfg = load_full_config(args.config, args)
 
-    pdf_dir = Path(args.pdf_dir)
+    pdf_dir = Path(cfg["paths"]["pdf_dir"])
     pdf_dir.mkdir(exist_ok=True)
+
+    # Update global cache dir based on config
+    global CACHE_DIR, CORPUS_CACHE, BM25_CACHE, MANIFEST_CACHE, TOKENIZED_CACHE
+    CACHE_DIR = Path(cfg["paths"]["cache_dir"])
+    CACHE_DIR.mkdir(exist_ok=True)
+    CORPUS_CACHE = CACHE_DIR / "corpus.jsonl.gz"
+    BM25_CACHE = CACHE_DIR / "bm25.pkl.gz"
+    MANIFEST_CACHE = CACHE_DIR / "manifest.json"
+    TOKENIZED_CACHE = CACHE_DIR / "tokenized.pkl.gz"
 
     # Build or load cached corpus & BM25
     corpus = await build_corpus(pdf_dir)
@@ -526,18 +544,27 @@ async def main():
     # Query
     query = args.query or input("Enter your query: ").strip()
     expanded = query
-    if args.rm3:
-        expanded = rm3_expand_query(query, bm25, tokenized, corpus, fb_docs=args.fb_docs, fb_terms=args.fb_terms, alpha=args.alpha)
+    if cfg["prf"]["enabled"]:
+        expanded = rm3_expand_query(
+            query, bm25, tokenized, corpus,
+            fb_docs=cfg["prf"]["fb_docs"],
+            fb_terms=cfg["prf"]["fb_terms"],
+            alpha=cfg["prf"]["alpha"]
+        )
         if expanded != query:
             print(f"\n[rm3] expanded → {expanded}")
 
     results = search_topk(
-        corpus, bm25, tokenized, expanded, k=args.k,
-        prox_window=(0 if args.no_prox else args.prox_window),
-        prox_lambda=(0.0 if args.no_prox else args.prox_lambda),
-        ngram_lambda=args.ngram_lambda,
-        diversity=(not args.no_diversity), div_lambda=args.div_lambda, max_per_doc=args.max_per_doc,
-        semantic=args.semantic_rerank, semantic_topn=args.semantic_topn,
+        corpus, bm25, tokenized, expanded,
+        k=cfg["rerank"]["final_top_k"],
+        prox_window=(0 if not cfg["bonuses"]["proximity"]["enabled"] else cfg["bonuses"]["proximity"]["window"]),
+        prox_lambda=(0.0 if not cfg["bonuses"]["proximity"]["enabled"] else cfg["bonuses"]["proximity"]["weight"]),
+        ngram_lambda=cfg["bonuses"]["ngram"]["weight"],
+        diversity=cfg["diversity"]["enabled"],
+        div_lambda=cfg["diversity"]["per_doc_penalty"],
+        max_per_doc=cfg["diversity"]["max_per_doc"],
+        semantic=cfg["rerank"]["semantic"]["enabled"],
+        semantic_topn=cfg["rerank"]["semantic"]["topn"],
     )
 
     print("\n=== Top Results ===")

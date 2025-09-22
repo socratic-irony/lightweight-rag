@@ -1,0 +1,61 @@
+paths:
+  pdf_dir: "pdfs"
+  cache_dir: ".raq_cache"
+  crossref_email: null           # optional; some APIs accept mailto
+
+indexing:
+  page_split: "page"             # "page" | "sentence" | "sliding"
+  window_chars: 1000             # used when page_split != "page"
+  overlap_chars: 120
+
+bm25:
+  k1: 1.5
+  b: 0.75
+  build_top_k: 300               # candidate pool from lexical stage (pre-rerank)
+  token_pattern: "[A-Za-z0-9]+"
+
+prf:                              # RM3
+  enabled: false
+  fb_docs: 6
+  fb_terms: 10
+  alpha: 0.6
+
+bonuses:
+  proximity:
+    enabled: true
+    window: 30
+    weight: 0.2
+  ngram:
+    enabled: true
+    weight: 0.1
+  patterns:
+    enabled: true
+    patterns: [" is a ", " we define ", " we propose ", " we argue ",
+               " consists of ", " stakeholders include ", " method ", " methodology "]
+    weight_per_hit: 0.05
+    max_hits: 6
+
+diversity:
+  enabled: true
+  per_doc_penalty: 0.3
+  max_per_doc: 2
+
+rerank:
+  semantic:
+    enabled: true
+    model: "sentence-transformers/all-MiniLM-L6-v2"
+    topn: 120                    # candidates to rerank
+  final_top_k: 8                 # number of items to return/print
+
+citations:
+  crossref: true
+  openalex: true
+  unpaywall: false
+  cache_seconds: 604800          # 7 days
+  page_offset_from_crossref: true
+  # future: try page offset from OpenAlex host venue pages if Crossref lacks 'page'
+
+output:
+  max_snippet_chars: 900
+  pretty_json: true
+  include_scores: true
