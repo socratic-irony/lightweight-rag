@@ -13,25 +13,15 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Import functions from the main module
-import importlib.util
-spec = importlib.util.spec_from_file_location("lightweight_rag", 
-    str(Path(__file__).parent.parent / "lightweight-rag.py"))
-lightweight_rag = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(lightweight_rag)
+# Import from modular package
+from lightweight_rag.models import DocMeta, Chunk
+from lightweight_rag.index import (
+    manifest_for_dir, load_manifest, save_manifest,
+    load_corpus_from_cache, save_corpus_to_cache,
+    load_bm25_from_cache, save_bm25_to_cache
+)
 
-# Import caching functions
-manifest_for_dir = lightweight_rag.manifest_for_dir
-load_manifest = lightweight_rag.load_manifest
-save_manifest = lightweight_rag.save_manifest
-load_corpus_from_cache = lightweight_rag.load_corpus_from_cache
-save_corpus_to_cache = lightweight_rag.save_corpus_to_cache
-load_bm25_from_cache = lightweight_rag.load_bm25_from_cache
-save_bm25_to_cache = lightweight_rag.save_bm25_to_cache
-
-# Import data classes
-Chunk = lightweight_rag.Chunk
-DocMeta = lightweight_rag.DocMeta
+# Data classes are already imported above
 
 
 class TestManifestGeneration:
@@ -87,7 +77,7 @@ class TestManifestCaching:
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock the MANIFEST_CACHE path
             cache_file = Path(temp_dir) / "manifest.json"
-            with patch.object(lightweight_rag, 'MANIFEST_CACHE', cache_file):
+            with patch('lightweight_rag.index.MANIFEST_CACHE', cache_file):
                 # Save manifest
                 save_manifest(test_manifest)
                 
@@ -102,7 +92,7 @@ class TestManifestCaching:
         """Test loading manifest when file doesn't exist."""
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_file = Path(temp_dir) / "nonexistent.json"
-            with patch.object(lightweight_rag, 'MANIFEST_CACHE', cache_file):
+            with patch('lightweight_rag.index.MANIFEST_CACHE', cache_file):
                 result = load_manifest()
                 assert result is None
     
@@ -112,7 +102,7 @@ class TestManifestCaching:
             cache_file = Path(temp_dir) / "manifest.json"
             cache_file.write_text("invalid json {")
             
-            with patch.object(lightweight_rag, 'MANIFEST_CACHE', cache_file):
+            with patch('lightweight_rag.index.MANIFEST_CACHE', cache_file):
                 result = load_manifest()
                 assert result is None
 
@@ -140,7 +130,7 @@ class TestCorpusCaching:
         
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_file = Path(temp_dir) / "corpus.jsonl.gz"
-            with patch.object(lightweight_rag, 'CORPUS_CACHE', cache_file):
+            with patch('lightweight_rag.index.CORPUS_CACHE', cache_file):
                 # Save corpus
                 save_corpus_to_cache(test_corpus)
                 
@@ -159,7 +149,7 @@ class TestCorpusCaching:
         """Test loading corpus when file doesn't exist."""
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_file = Path(temp_dir) / "nonexistent.jsonl.gz"
-            with patch.object(lightweight_rag, 'CORPUS_CACHE', cache_file):
+            with patch('lightweight_rag.index.CORPUS_CACHE', cache_file):
                 result = load_corpus_from_cache()
                 assert result is None
     
@@ -172,7 +162,7 @@ class TestCorpusCaching:
             with gzip.open(cache_file, 'wt') as f:
                 f.write("invalid json line\n")
             
-            with patch.object(lightweight_rag, 'CORPUS_CACHE', cache_file):
+            with patch('lightweight_rag.index.CORPUS_CACHE', cache_file):
                 result = load_corpus_from_cache()
                 assert result is None
 
@@ -197,8 +187,8 @@ class TestBM25Caching:
             bm25_cache = Path(temp_dir) / "bm25.pkl.gz"
             tokenized_cache = Path(temp_dir) / "tokenized.pkl.gz"
             
-            with patch.object(lightweight_rag, 'BM25_CACHE', bm25_cache):
-                with patch.object(lightweight_rag, 'TOKENIZED_CACHE', tokenized_cache):
+            with patch('lightweight_rag.index.BM25_CACHE', bm25_cache):
+                with patch('lightweight_rag.index.TOKENIZED_CACHE', tokenized_cache):
                     # Save BM25 and tokenized data
                     save_bm25_to_cache(real_bm25, test_tokenized)
                     
@@ -218,8 +208,8 @@ class TestBM25Caching:
             bm25_cache = Path(temp_dir) / "nonexistent_bm25.pkl.gz"
             tokenized_cache = Path(temp_dir) / "nonexistent_tokenized.pkl.gz"
             
-            with patch.object(lightweight_rag, 'BM25_CACHE', bm25_cache):
-                with patch.object(lightweight_rag, 'TOKENIZED_CACHE', tokenized_cache):
+            with patch('lightweight_rag.index.BM25_CACHE', bm25_cache):
+                with patch('lightweight_rag.index.TOKENIZED_CACHE', tokenized_cache):
                     result = load_bm25_from_cache()
                     assert result is None  # Function returns None, not tuple
     
@@ -235,8 +225,8 @@ class TestBM25Caching:
             with gzip.open(bm25_cache, 'wb') as f:
                 pickle.dump(BM25Okapi([["test"]]), f)
             
-            with patch.object(lightweight_rag, 'BM25_CACHE', bm25_cache):
-                with patch.object(lightweight_rag, 'TOKENIZED_CACHE', tokenized_cache):
+            with patch('lightweight_rag.index.BM25_CACHE', bm25_cache):
+                with patch('lightweight_rag.index.TOKENIZED_CACHE', tokenized_cache):
                     result = load_bm25_from_cache()
                     assert result is None  # Should return None if both files aren't available
 
@@ -306,7 +296,7 @@ class TestCacheDirectoryManagement:
             cache_dir = Path(temp_dir) / "test_cache"
             
             # Mock the CACHE_DIR
-            with patch.object(lightweight_rag, 'CACHE_DIR', cache_dir):
+            with patch('lightweight_rag.index.CACHE_DIR', cache_dir):
                 # Simulate cache directory creation
                 cache_dir.mkdir(exist_ok=True)
                 
