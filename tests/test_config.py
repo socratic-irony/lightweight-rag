@@ -12,7 +12,7 @@ from argparse import Namespace
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config import (
+from lightweight_rag.config import (
     get_default_config, load_config, apply_env_vars,
     apply_cli_overrides, load_full_config, merge_configs
 )
@@ -215,7 +215,7 @@ class TestFullConfigLoad:
     
     def test_full_config_with_defaults_only(self):
         """Test loading with defaults only (no file, no env, no CLI)."""
-        with patch("config.load_config", return_value=get_default_config()):
+        with patch("lightweight_rag.config.load_config", return_value=get_default_config()):
             with patch.dict(os.environ, {}, clear=True):
                 config = load_full_config("nonexistent.yaml", Namespace())
                 
@@ -233,7 +233,7 @@ class TestFullConfigLoad:
         # CLI args
         cli_args = Namespace(pdf_dir="cli_pdfs", k=None)  # k=None should not override
         
-        with patch("config.load_config", return_value=file_config):
+        with patch("lightweight_rag.config.load_config", return_value=file_config):
             with patch.dict(os.environ, {"RAG_BM25_K1": "3.0"}):
                 config = load_full_config("test.yaml", cli_args)
                 
@@ -248,7 +248,7 @@ class TestFullConfigLoad:
         file_config["bonuses"]["proximity"]["window"] = 50
         file_config["bonuses"]["ngram"]["weight"] = 0.2
         
-        with patch("config.load_config", return_value=file_config):
+        with patch("lightweight_rag.config.load_config", return_value=file_config):
             with patch.dict(os.environ, {}, clear=True):
                 config = load_full_config("test.yaml", Namespace())
                 
