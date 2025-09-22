@@ -1,12 +1,18 @@
 """Citation and DOI handling with Crossref integration."""
 
 import re
+import asyncio
 from typing import Optional, List
 from urllib.parse import quote
 
 import httpx
 
 from .models import DocMeta
+from .index import (
+    load_doi_cache, cache_doi_metadata, is_doi_cache_fresh, 
+    get_cached_doi_metadata
+)
+from .performance import create_api_semaphore, process_with_semaphore
 
 
 async def crossref_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional[DocMeta]:
@@ -81,3 +87,87 @@ def author_date_citation(meta: DocMeta, page: Optional[int]) -> str:
         return f"({au}, {yr}, p. {actual_page})"
     else:
         return f"({au}, {yr})"
+
+
+async def crossref_meta_for_doi_cached(
+    client: httpx.AsyncClient, 
+    doi: str,
+    cache_seconds: int = 604800,
+    semaphore: Optional[asyncio.Semaphore] = None
+) -> Optional[DocMeta]:
+    """
+    Fetch document metadata from Crossref API with caching and semaphore limiting.
+    """
+    # Check cache first
+    if is_doi_cache_fresh(doi, cache_seconds):
+        cached_data = get_cached_doi_metadata(doi)
+        if cached_data and "crossref" in cached_data:
+            crossref_data = cached_data["crossref"]
+            return DocMeta(
+                title=crossref_data.get("title"),
+                authors=crossref_data.get("authors", []),
+                year=crossref_data.get("year"),
+                doi=doi,
+                source="",
+                start_page=crossref_data.get("start_page")
+            )
+    
+    # If not in cache or stale, fetch from API
+    if semaphore:
+        return await process_with_semaphore(
+            semaphore, _fetch_crossref_uncached, client, doi, cache_seconds
+        )
+    else:
+        return await _fetch_crossref_uncached(client, doi, cache_seconds)
+
+
+async def _fetch_crossref_uncached(
+    client: httpx.AsyncClient, 
+    doi: str, 
+    cache_seconds: int
+) -> Optional[DocMeta]:
+    """Internal function to fetch from Crossref API and cache result."""
+    meta = await crossref_meta_for_doi(client, doi)
+    
+    # Cache the result
+    if meta:
+        crossref_data = {
+            "title": meta.title,
+            "authors": meta.authors,
+            "year": meta.year,
+            "start_page": meta.start_page
+        }
+        cache_doi_metadata(doi, crossref_data=crossref_data)
+    
+    return meta
+
+
+async def batch_crossref_lookup(
+    client: httpx.AsyncClient,
+    dois: List[str],
+    cache_seconds: int = 604800,
+    max_concurrent: int = 5
+) -> List[Optional[DocMeta]]:
+    """
+    Batch lookup DOIs from Crossref with concurrent processing and caching.
+    """
+    semaphore = create_api_semaphore(max_concurrent)
+    
+    tasks = [
+        crossref_meta_for_doi_cached(
+            client, doi, cache_seconds, semaphore
+        ) for doi in dois
+    ]
+    
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Convert exceptions to None
+    processed_results = []
+    for result in results:
+        if isinstance(result, Exception):
+            print(f"DOI lookup failed: {result}")
+            processed_results.append(None)
+        else:
+            processed_results.append(result)
+    
+    return processed_results

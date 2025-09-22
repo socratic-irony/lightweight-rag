@@ -77,6 +77,27 @@ pip install numpy>=1.24.0 sentence-transformers>=2.2.0
 
 *Note: Semantic reranking significantly increases download size (~500MB) but provides better result ranking.*
 
+## 🐳 GitHub Codespaces
+
+This repository is optimized for GitHub Codespaces development:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/socratic-irony/lightweight-rag)
+
+### What's Included
+- **Pre-configured Python 3.12 environment** with all dependencies
+- **VS Code extensions** for Python development, linting, and formatting
+- **Automatic dependency installation** on container startup
+- **Optimized settings** for Python development workflow
+- **Fast startup** with cached PDF processing and intelligent caching
+
+### Getting Started in Codespaces
+1. Click the Codespaces badge above or create a new codespace from the repository
+2. Wait for the container to build and dependencies to install (~2-3 minutes)
+3. Add your PDFs to the `pdfs/` directory
+4. Run: `python lightweight-rag.py --query "your search query"`
+
+The devcontainer configuration ensures optimal performance and includes all necessary tools for development and testing.
+
 ## ⚙️ Configuration
 
 ### Quick Configuration
@@ -111,6 +132,12 @@ rerank:
     enabled: true      # Requires sentence-transformers
     model: "sentence-transformers/all-MiniLM-L6-v2"
   final_top_k: 8      # Results to return
+
+performance:
+  api_semaphore_size: 5      # Max concurrent API calls
+  pdf_thread_workers: null   # None = auto (num_cores), or set manually  
+  deterministic: true        # Enable deterministic tie-breaking
+  numpy_seed: 42            # Seed for numpy random operations
 ```
 
 ### Environment Variables
