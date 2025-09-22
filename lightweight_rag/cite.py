@@ -1,4 +1,4 @@
-"""Citation and DOI handling with Crossref integration."""
+"""Citation and DOI handling with Crossref, OpenAlex, and Unpaywall integration."""
 
 import re
 import asyncio
@@ -65,6 +65,78 @@ async def crossref_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional
         return None
 
 
+async def openalex_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional[dict]:
+    """Fetch document metadata from OpenAlex API."""
+    url = f"https://api.openalex.org/works/https://doi.org/{quote(doi, safe='')}"
+    try:
+        r = await client.get(url, timeout=20)
+        r.raise_for_status()
+        work = r.json()
+        
+        # Extract venue information
+        venue = None
+        if work.get("host_venue") and work["host_venue"].get("display_name"):
+            venue = work["host_venue"]["display_name"]
+        elif work.get("primary_location") and work["primary_location"].get("source"):
+            source_info = work["primary_location"]["source"]
+            if source_info and source_info.get("display_name"):
+                venue = source_info["display_name"]
+        
+        # Extract publisher
+        publisher = None
+        if work.get("host_venue") and work["host_venue"].get("publisher"):
+            publisher = work["host_venue"]["publisher"]
+        
+        # Extract concept tags (limit to high-level concepts)
+        concepts = []
+        for concept in work.get("concepts", []):
+            if concept.get("level", 0) <= 2:  # Only high-level concepts
+                concept_name = concept.get("display_name")
+                if concept_name and concept.get("score", 0) >= 0.3:  # Only confident matches
+                    concepts.append(concept_name)
+        
+        # Extract open access URL
+        oa_url = None
+        if work.get("open_access") and work["open_access"].get("oa_url"):
+            oa_url = work["open_access"]["oa_url"]
+        elif work.get("primary_location") and work["primary_location"].get("pdf_url"):
+            oa_url = work["primary_location"]["pdf_url"]
+        
+        return {
+            "venue": venue,
+            "publisher": publisher, 
+            "concepts": concepts,
+            "oa_url": oa_url
+        }
+    
+    except Exception as e:
+        print(f"OpenAlex lookup failed for {doi}: {e}")
+        return None
+
+
+async def unpaywall_meta_for_doi(client: httpx.AsyncClient, doi: str, email: str = "anonymous@example.com") -> Optional[dict]:
+    """Fetch document metadata from Unpaywall API."""
+    url = f"https://api.unpaywall.org/v2/{quote(doi, safe='')}?email={quote(email, safe='')}"
+    try:
+        r = await client.get(url, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Extract the best OA location
+        oa_url = None
+        if data.get("best_oa_location") and data["best_oa_location"].get("url_for_pdf"):
+            oa_url = data["best_oa_location"]["url_for_pdf"]
+        
+        return {
+            "oa_url": oa_url,
+            "is_oa": data.get("is_oa", False)
+        }
+    
+    except Exception as e:
+        print(f"Unpaywall lookup failed for {doi}: {e}")
+        return None
+
+
 def author_date_citation(meta: DocMeta, page: Optional[int]) -> str:
     """Format an author-date citation string."""
     if not meta.authors:
@@ -89,6 +161,124 @@ def author_date_citation(meta: DocMeta, page: Optional[int]) -> str:
         return f"({au}, {yr})"
 
 
+async def enriched_meta_for_doi_cached(
+    client: httpx.AsyncClient, 
+    doi: str,
+    cache_seconds: int = 604800,
+    semaphore: Optional[asyncio.Semaphore] = None,
+    use_crossref: bool = True,
+    use_openalex: bool = True, 
+    use_unpaywall: bool = False,
+    unpaywall_email: str = "anonymous@example.com"
+) -> Optional[DocMeta]:
+    """
+    Fetch enriched document metadata from multiple APIs with caching.
+    
+    This follows the roadmap's data flow:
+    1. Crossref for basic metadata + start_page
+    2. OpenAlex for venue, publisher, concepts, OA URL 
+    3. Unpaywall for verified OA links (optional)
+    """
+    # Check cache first
+    if is_doi_cache_fresh(doi, cache_seconds):
+        cached_data = get_cached_doi_metadata(doi)
+        if cached_data:
+            return _build_docmeta_from_cache(doi, cached_data)
+    
+    # If not in cache or stale, fetch from APIs
+    if semaphore:
+        return await process_with_semaphore(
+            semaphore, _fetch_enriched_uncached, client, doi, cache_seconds,
+            use_crossref, use_openalex, use_unpaywall, unpaywall_email
+        )
+    else:
+        return await _fetch_enriched_uncached(
+            client, doi, cache_seconds, use_crossref, use_openalex, use_unpaywall, unpaywall_email
+        )
+
+
+def _build_docmeta_from_cache(doi: str, cached_data: dict) -> Optional[DocMeta]:
+    """Build DocMeta from cached data combining all sources."""
+    # Start with Crossref data as base
+    crossref_data = cached_data.get("crossref", {})
+    openalex_data = cached_data.get("openalex", {})
+    unpaywall_data = cached_data.get("unpaywall", {})
+    
+    return DocMeta(
+        title=crossref_data.get("title"),
+        authors=crossref_data.get("authors", []),
+        year=crossref_data.get("year"),
+        doi=doi,
+        source="",
+        start_page=crossref_data.get("start_page"),
+        venue=openalex_data.get("venue"),
+        publisher=openalex_data.get("publisher"),
+        concepts=openalex_data.get("concepts"),
+        oa_url=unpaywall_data.get("oa_url") or openalex_data.get("oa_url")  # Prefer Unpaywall
+    )
+
+
+async def _fetch_enriched_uncached(
+    client: httpx.AsyncClient, 
+    doi: str, 
+    cache_seconds: int,
+    use_crossref: bool,
+    use_openalex: bool,
+    use_unpaywall: bool,
+    unpaywall_email: str
+) -> Optional[DocMeta]:
+    """Internal function to fetch from multiple APIs and cache enriched result."""
+    crossref_data = {}
+    openalex_data = {}
+    unpaywall_data = {}
+    
+    # Fetch from enabled APIs
+    if use_crossref:
+        crossref_meta = await crossref_meta_for_doi(client, doi)
+        if crossref_meta:
+            crossref_data = {
+                "title": crossref_meta.title,
+                "authors": crossref_meta.authors,
+                "year": crossref_meta.year,
+                "start_page": crossref_meta.start_page
+            }
+    
+    if use_openalex:
+        openalex_result = await openalex_meta_for_doi(client, doi)
+        if openalex_result:
+            openalex_data = openalex_result
+    
+    if use_unpaywall:
+        unpaywall_result = await unpaywall_meta_for_doi(client, doi, unpaywall_email)
+        if unpaywall_result:
+            unpaywall_data = unpaywall_result
+    
+    # Cache all results
+    cache_doi_metadata(
+        doi, 
+        crossref_data=crossref_data if crossref_data else None,
+        openalex_data=openalex_data if openalex_data else None, 
+        unpaywall_data=unpaywall_data if unpaywall_data else None
+    )
+    
+    # Build combined DocMeta
+    if not any([crossref_data, openalex_data, unpaywall_data]):
+        return None
+        
+    return DocMeta(
+        title=crossref_data.get("title"),
+        authors=crossref_data.get("authors", []),
+        year=crossref_data.get("year"),
+        doi=doi,
+        source="",
+        start_page=crossref_data.get("start_page"),
+        venue=openalex_data.get("venue"),
+        publisher=openalex_data.get("publisher"),
+        concepts=openalex_data.get("concepts"),
+        oa_url=unpaywall_data.get("oa_url") or openalex_data.get("oa_url")
+    )
+
+
 async def crossref_meta_for_doi_cached(
     client: httpx.AsyncClient, 
     doi: str,
@@ -97,6 +287,7 @@ async def crossref_meta_for_doi_cached(
 ) -> Optional[DocMeta]:
     """
     Fetch document metadata from Crossref API with caching and semaphore limiting.
+    This is kept for backward compatibility - use enriched_meta_for_doi_cached for full functionality.
     """
     # Check cache first
     if is_doi_cache_fresh(doi, cache_seconds):
@@ -150,12 +341,49 @@ async def batch_crossref_lookup(
 ) -> List[Optional[DocMeta]]:
     """
     Batch lookup DOIs from Crossref with concurrent processing and caching.
+    This is kept for backward compatibility - use batch_enriched_lookup for full functionality.
     """
     semaphore = create_api_semaphore(max_concurrent)
     
     tasks = [
         crossref_meta_for_doi_cached(
             client, doi, cache_seconds, semaphore
+        ) for doi in dois
+    ]
+    
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Convert exceptions to None
+    processed_results = []
+    for result in results:
+        if isinstance(result, Exception):
+            print(f"DOI lookup failed: {result}")
+            processed_results.append(None)
+        else:
+            processed_results.append(result)
+    
+    return processed_results
+
+
+async def batch_enriched_lookup(
+    client: httpx.AsyncClient,
+    dois: List[str],
+    cache_seconds: int = 604800,
+    max_concurrent: int = 5,
+    use_crossref: bool = True,
+    use_openalex: bool = True, 
+    use_unpaywall: bool = False,
+    unpaywall_email: str = "anonymous@example.com"
+) -> List[Optional[DocMeta]]:
+    """
+    Batch lookup DOIs from multiple APIs with concurrent processing and caching.
+    """
+    semaphore = create_api_semaphore(max_concurrent)
+    
+    tasks = [
+        enriched_meta_for_doi_cached(
+            client, doi, cache_seconds, semaphore, 
+            use_crossref, use_openalex, use_unpaywall, unpaywall_email
         ) for doi in dois
     ]
     

@@ -149,7 +149,7 @@ lightweight_rag/
 ### RRF (reciprocal rank fusion) across variants
 - Fuse rankings from: (a) raw query, (b) RM3-expanded, (c) phrase-boosted. This is ~20 lines and consistently lifts recall with negligible cost.
 
-## 5) Citation enrichment (Crossref, OpenAlex, Unpaywall)
+## 5) ✅ **COMPLETED** - Citation enrichment (Crossref, OpenAlex, Unpaywall)
 
 Keep it simple and cached:
 
@@ -178,6 +178,8 @@ Keep it simple and cached:
 ```
 
 - Refresh if stale by citations.cache_seconds.
+
+**Status**: Implemented complete citation enrichment pipeline with OpenAlex and Unpaywall integration. The system now fetches venue, publisher, concept tags, and verified OA URLs from multiple sources, with intelligent fallbacks and caching. All APIs are batched with concurrent processing and configurable via the citations config section.
 
 ## 6) Configurable chunking
 
