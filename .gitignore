@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# RAG pipeline caches
+.raq_cache/
+*.pkl
+*.pkl.gz
+*.jsonl.gz
+
+# Local data
+pdfs/
+pdfs-test/
+*.pdf
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Jupyter and editor artifacts
+.ipynb_checkpoints/
+*.swp
+*.swo
+*.tmp
+
+# VSCode / Cursor
+.vscode/
+.idea/
