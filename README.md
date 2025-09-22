@@ -1,6 +1,6 @@
 # 🚀 Lightweight RAG
 
-[![Tests](https://github.com/socratic-irony/lightweight-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/socratic-irony/lightweight-rag/actions/workflows/tests.yml)
+[![Tests](https://github.com/socratic-irony/lightweight-rag/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/socratic-irony/lightweight-rag/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/socratic-irony/lightweight-rag/branch/main/graph/badge.svg)](https://codecov.io/gh/socratic-irony/lightweight-rag)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
