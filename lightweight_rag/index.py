@@ -20,7 +20,7 @@ from .models import Chunk, STOP
 # Global cache paths (updated by main)
 # -------------------------
 CACHE_DIR = Path(".raq_cache")
-CACHE_DIR.mkdir(exist_ok=True)
+# Don't create the directory immediately - let update_cache_paths handle it
 CORPUS_CACHE = CACHE_DIR / "corpus.jsonl.gz"
 BM25_CACHE = CACHE_DIR / "bm25.pkl.gz"
 MANIFEST_CACHE = CACHE_DIR / "manifest.json"
