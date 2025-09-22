@@ -3,6 +3,7 @@
 import re
 import os
 import json
+import glob
 import pickle
 import gzip
 import hashlib
@@ -73,14 +74,8 @@ def update_cache_paths(cache_dir: Path) -> None:
 
 def manifest_for_dir(pdf_dir: Path) -> Dict[str, Any]:
     """Generate manifest of PDF directory for cache invalidation."""
-    manifest = {}
-    for pdf_file in pdf_dir.glob("*.pdf"):
-        stat = pdf_file.stat()
-        manifest[str(pdf_file)] = {
-            "size": stat.st_size,
-            "mtime": stat.st_mtime
-        }
-    return manifest
+    files = sorted(glob.glob(str(pdf_dir / "*.pdf")))
+    return {"files": [{"path": f, "mtime": os.path.getmtime(f), "size": os.path.getsize(f)} for f in files]}
 
 
 def load_manifest() -> Optional[Dict[str, Any]]:
@@ -148,21 +143,26 @@ def save_corpus_to_cache(corpus: List[Chunk]) -> None:
 
 def load_bm25_from_cache() -> Optional[Tuple[BM25Okapi, List[List[str]]]]:
     """Load BM25 index from cache."""
-    if not BM25_CACHE.exists():
+    if not BM25_CACHE.exists() or not TOKENIZED_CACHE.exists():
         return None
     try:
+        with gzip.open(TOKENIZED_CACHE, "rb") as f:
+            tokenized = pickle.load(f)
         with gzip.open(BM25_CACHE, "rb") as f:
-            data = pickle.load(f)
-            return data["bm25"], data["tokenized"]
+            bm25 = pickle.load(f)
+        if not isinstance(bm25, BM25Okapi):
+            bm25 = BM25Okapi(tokenized)
+        return bm25, tokenized
     except Exception:
         return None
 
 
 def save_bm25_to_cache(bm25: BM25Okapi, tokenized: List[List[str]]) -> None:
     """Save BM25 index to cache."""
-    data = {"bm25": bm25, "tokenized": tokenized}
+    with gzip.open(TOKENIZED_CACHE, "wb") as f:
+        pickle.dump(tokenized, f)
     with gzip.open(BM25_CACHE, "wb") as f:
-        pickle.dump(data, f)
+        pickle.dump(bm25, f)
 
 
 # -------------------------
