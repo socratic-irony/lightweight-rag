@@ -10,6 +10,8 @@ venv/
 
 # RAG pipeline caches
 .raq_cache/
+.test_cache/
+.test_cache_*/
 *.pkl
 *.pkl.gz
 *.jsonl.gz
