@@ -8,23 +8,10 @@ from pathlib import Path
 # Add the parent directory to sys.path to import lightweight-rag
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Import functions from the main module
-import importlib.util
-spec = importlib.util.spec_from_file_location("lightweight_rag", 
-    str(Path(__file__).parent.parent / "lightweight-rag.py"))
-lightweight_rag = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(lightweight_rag)
-
-# Import the functions we need to test
-tokenize = lightweight_rag.tokenize
-window = lightweight_rag.window
-ngram_bonus = lightweight_rag.ngram_bonus
-proximity_bonus = lightweight_rag.proximity_bonus
-pattern_bonus = lightweight_rag.pattern_bonus
-find_doi_in_text = lightweight_rag.find_doi_in_text
-DOI_RE = lightweight_rag.DOI_RE
-ANSWER_PATTERNS = lightweight_rag.ANSWER_PATTERNS
-STOP = lightweight_rag.STOP
+# Import functions from the modular structure
+from lightweight_rag.index import tokenize
+from lightweight_rag.models import window, find_doi_in_text, DOI_RE, ANSWER_PATTERNS, STOP
+from lightweight_rag.scoring import ngram_bonus, proximity_bonus, pattern_bonus
 
 
 class TestTokenize:
