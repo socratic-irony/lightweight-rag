@@ -85,6 +85,9 @@ def direct_query_mode(args):
     if args.top_k:
         config["rerank"]["final_top_k"] = args.top_k
     
+    # Set quiet mode for subprocess usage
+    config["_quiet_mode"] = True
+    
     try:
         results = query_pdfs(args.query, config)
         
