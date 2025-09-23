@@ -4,12 +4,18 @@ Lightweight RAG - Modular version
 Command-line interface for PDF search and retrieval using BM25 + optional semantic reranking.
 """
 
+import os
+import platform
 import asyncio
 import json
 from dotenv import load_dotenv
 
 from lightweight_rag.cli import parse_args_and_load_config
 from lightweight_rag.main import run_rag_pipeline
+
+# On macOS, setting this environment variable can help avoid a multiprocessing-related error.
+if platform.system() == "Darwin":
+    os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
 
 async def main():
