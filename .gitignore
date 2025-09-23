@@ -21,8 +21,17 @@ pdfs/
 pdfs-test/
 *.pdf
 
-# Environment variables
+# Environment variables and secrets
 .env
+.env.*
+config_local.yaml
+config_dev.yaml
+config_prod.yaml
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
 
 # OS files
 .DS_Store
