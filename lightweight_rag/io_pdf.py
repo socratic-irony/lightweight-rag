@@ -93,14 +93,32 @@ def clean_text(text: str) -> str:
     # Remove null bytes and other problematic control characters
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
     
-    # Normalize unicode
-    text = unicodedata.normalize('NFKC', text)
-    
-    # Clean up excessive whitespace
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
+    # Advanced text normalization for PDF-specific issues
+    text = normalize_text(text)
     
     return text
+
+
+def normalize_text(s: str) -> str:
+    """
+    Advanced text normalization for PDF extraction issues.
+    
+    Handles:
+    - Soft hyphens (U+00AD)
+    - Hard hyphenation across line breaks  
+    - Line break normalization
+    - Unicode normalization (NFKC)
+    - Whitespace normalization
+    """
+    HARD_HYPH = re.compile(r"(\w)-\n(\w)")   # word-break hyphens
+    SOFT_HYPH = "\u00AD"                     # soft hyphen
+    
+    s = s.replace(SOFT_HYPH, "")             # Remove soft hyphens
+    s = HARD_HYPH.sub(r"\1\2", s)           # De-hyphenate line breaks
+    s = s.replace("\n", " ")                 # Convert newlines to spaces
+    s = unicodedata.normalize("NFKC", s)     # Normalize unicode
+    s = re.sub(r"\s+", " ", s).strip()       # Clean excessive whitespace
+    return s
 
 
 # -------------------------
