@@ -3,8 +3,10 @@
 
 import asyncio
 import httpx
+import pytest
 
 
+@pytest.mark.asyncio
 async def test_known_working_doi():
     """Test with a known working DOI."""
     # Using a well-known Nature paper DOI
