@@ -1,7 +1,7 @@
 paths:
   pdf_dir: "pdfs"
   cache_dir: ".raq_cache"
-  crossref_email: null           # optional; some APIs accept mailto
+  crossref_email: "union-farmers0n@icloud.com"  # optional; some APIs accept mailto
 
 indexing:
   page_split: "page"             # "page" | "sentence" | "sliding"
@@ -51,6 +51,7 @@ citations:
   crossref: true
   openalex: true
   unpaywall: false
+  unpaywall_email: "union-farmers0n@icloud.com"  # Required for Unpaywall API
   cache_seconds: 604800          # 7 days
   page_offset_from_crossref: true
   # future: try page offset from OpenAlex host venue pages if Crossref lacks 'page'
