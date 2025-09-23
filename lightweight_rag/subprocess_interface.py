@@ -104,20 +104,29 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
     # Set quiet mode for subprocess usage
     cfg["_quiet_mode"] = True
     
-    # Normalize and ensure paths exist
+    # Ensure paths exist, but only normalize/resolve paths that need expansion
     try:
-        pdf_dir = Path(cfg["paths"]["pdf_dir"]).expanduser().resolve()
+        pdf_dir_str = cfg["paths"]["pdf_dir"]
+        if "~" in pdf_dir_str:
+            # Only resolve paths that contain ~ or other special characters
+            pdf_dir = Path(pdf_dir_str).expanduser().resolve()
+            cfg["paths"]["pdf_dir"] = str(pdf_dir)
+        else:
+            pdf_dir = Path(pdf_dir_str)
         pdf_dir.mkdir(parents=True, exist_ok=True)
-        cfg["paths"]["pdf_dir"] = str(pdf_dir)
     except (OSError, PermissionError) as e:
         # If we can't create the PDF directory, that might be okay - it could be read-only
-        pdf_dir = Path(cfg["paths"]["pdf_dir"]).expanduser().resolve()
-        cfg["paths"]["pdf_dir"] = str(pdf_dir)
+        pass
     
     try:
-        cache_dir = Path(cfg["paths"]["cache_dir"]).expanduser().resolve()
+        cache_dir_str = cfg["paths"]["cache_dir"]
+        if "~" in cache_dir_str:
+            # Only resolve paths that contain ~ or other special characters
+            cache_dir = Path(cache_dir_str).expanduser().resolve()
+            cfg["paths"]["cache_dir"] = str(cache_dir)
+        else:
+            cache_dir = Path(cache_dir_str)
         cache_dir.mkdir(parents=True, exist_ok=True)
-        cfg["paths"]["cache_dir"] = str(cache_dir)
     except (OSError, PermissionError) as e:
         # Cache directory creation failure is more serious, but let's handle it gracefully
         import tempfile
