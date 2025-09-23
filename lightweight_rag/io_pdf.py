@@ -54,7 +54,7 @@ def is_text_quality_good(text: str, min_readable_ratio: float = 0.7) -> bool:
     printable_ratio = printable_chars / total_chars
     
     # Reject if too many control characters or too few printable characters
-    if control_ratio > 0.1:  # More than 10% control characters is suspicious
+    if control_ratio > 0.05:  # More than 5% control characters is suspicious (was 10%)
         return False
     
     if printable_ratio < min_readable_ratio:  # Less than 70% printable characters

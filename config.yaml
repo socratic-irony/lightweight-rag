@@ -7,6 +7,8 @@ indexing:
   page_split: "page"             # "page" | "sentence" | "sliding"
   window_chars: 1000             # used when page_split != "page"
   overlap_chars: 120
+  text_quality_check: true       # Enable text quality validation for PDFs
+  min_readable_ratio: 0.7        # Minimum ratio of readable characters (0.0-1.0)
 
 bm25:
   k1: 1.5

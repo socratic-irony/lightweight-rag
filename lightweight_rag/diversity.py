@@ -30,6 +30,11 @@ def apply_diversity_selection(
     diverse_results = []
     
     for chunk_idx, score in results:
+        # Defensive check for index bounds
+        if chunk_idx >= len(corpus):
+            print(f"Warning: chunk index {chunk_idx} out of range (corpus size: {len(corpus)}). Skipping.")
+            continue
+            
         chunk = corpus[chunk_idx]
         doc_id = chunk.doc_id
         
