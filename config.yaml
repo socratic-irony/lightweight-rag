@@ -14,6 +14,7 @@ bm25:
   k1: 1.5
   b: 0.75
   build_top_k: 300               # candidate pool from lexical stage (pre-rerank)
+  pool_size: 200                 # candidates from lexical stage before fusion/rerank
   token_pattern: "[A-Za-z0-9]+"
 
 prf:                              # RM3
@@ -48,6 +49,14 @@ rerank:
     model: "sentence-transformers/all-MiniLM-L6-v2"
     topn: 120                    # candidates to rerank
   final_top_k: 8                 # number of items to return/print
+
+fusion:
+  rrf:
+    enabled: true                # Enable Reciprocal Rank Fusion
+    C: 60                        # RRF parameter (higher = less aggressive fusion)
+    cap: 200                     # Max items per run to consider in fusion
+  robust_query:
+    enabled: true                # Enable robust query variant run
 
 citations:
   crossref: true
