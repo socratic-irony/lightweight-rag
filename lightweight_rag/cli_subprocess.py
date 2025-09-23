@@ -14,11 +14,8 @@ import argparse
 import asyncio
 from pathlib import Path
 
-# Add current directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-from lightweight_rag.subprocess_interface import main as subprocess_main
-from lightweight_rag import query_pdfs, get_default_config, load_config, merge_configs
+from .subprocess_interface import main as subprocess_main
+from . import query_pdfs, get_default_config, load_config, merge_configs
 
 
 def create_parser():
@@ -77,11 +74,11 @@ def direct_query_mode(args):
         except Exception as e:
             print(f"Warning: Could not load config file: {e}", file=sys.stderr)
     
-    # Apply CLI overrides
+    # Apply CLI overrides with path normalization
     if args.pdf_dir:
-        config["paths"]["pdf_dir"] = args.pdf_dir
+        config["paths"]["pdf_dir"] = str(Path(args.pdf_dir).expanduser().resolve())
     if args.cache_dir:
-        config["paths"]["cache_dir"] = args.cache_dir
+        config["paths"]["cache_dir"] = str(Path(args.cache_dir).expanduser().resolve())
     if args.top_k:
         config["rerank"]["final_top_k"] = args.top_k
     
@@ -153,11 +150,11 @@ def batch_processing_mode(args):
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}", file=sys.stderr)
         
-        # Apply CLI overrides
+        # Apply CLI overrides with path normalization
         if args.pdf_dir:
-            config["paths"]["pdf_dir"] = args.pdf_dir
+            config["paths"]["pdf_dir"] = str(Path(args.pdf_dir).expanduser().resolve())
         if args.cache_dir:
-            config["paths"]["cache_dir"] = args.cache_dir
+            config["paths"]["cache_dir"] = str(Path(args.cache_dir).expanduser().resolve())
         if args.top_k:
             config["rerank"]["final_top_k"] = args.top_k
         

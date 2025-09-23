@@ -14,6 +14,7 @@ from typing import Dict, Any, List
 
 from .config import get_default_config, load_config, merge_configs
 from .main import run_rag_pipeline
+from .environment import adapt_config_for_environment
 
 
 def create_error_response(error_message: str, query: str = None) -> Dict[str, Any]:
@@ -52,6 +53,30 @@ def validate_input(data: Dict[str, Any]) -> tuple[bool, str]:
     if "config" in data and not isinstance(data["config"], dict):
         return False, "Field 'config' must be an object if provided"
     
+    # Validate config structure if provided
+    if "config" in data:
+        config = data["config"]
+        
+        # Validate paths if provided
+        if "paths" in config:
+            if not isinstance(config["paths"], dict):
+                return False, "config.paths must be an object"
+            
+            paths = config["paths"]
+            for path_key in ["pdf_dir", "cache_dir"]:
+                if path_key in paths and not isinstance(paths[path_key], str):
+                    return False, f"config.paths.{path_key} must be a string"
+        
+        # Validate rerank settings if provided
+        if "rerank" in config:
+            if not isinstance(config["rerank"], dict):
+                return False, "config.rerank must be an object"
+            
+            rerank = config["rerank"]
+            if "final_top_k" in rerank:
+                if not isinstance(rerank["final_top_k"], int) or rerank["final_top_k"] < 1:
+                    return False, "config.rerank.final_top_k must be a positive integer"
+    
     return True, ""
 
 
@@ -73,15 +98,31 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
     if config_data:
         cfg = merge_configs(cfg, config_data)
     
+    # Adapt configuration for current environment
+    cfg = adapt_config_for_environment(cfg)
+    
     # Set quiet mode for subprocess usage
     cfg["_quiet_mode"] = True
     
-    # Ensure paths exist
-    pdf_dir = Path(cfg["paths"]["pdf_dir"])
-    pdf_dir.mkdir(exist_ok=True)
+    # Normalize and ensure paths exist
+    try:
+        pdf_dir = Path(cfg["paths"]["pdf_dir"]).expanduser().resolve()
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        cfg["paths"]["pdf_dir"] = str(pdf_dir)
+    except (OSError, PermissionError) as e:
+        # If we can't create the PDF directory, that might be okay - it could be read-only
+        pdf_dir = Path(cfg["paths"]["pdf_dir"]).expanduser().resolve()
+        cfg["paths"]["pdf_dir"] = str(pdf_dir)
     
-    cache_dir = Path(cfg["paths"]["cache_dir"])
-    cache_dir.mkdir(exist_ok=True)
+    try:
+        cache_dir = Path(cfg["paths"]["cache_dir"]).expanduser().resolve()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cfg["paths"]["cache_dir"] = str(cache_dir)
+    except (OSError, PermissionError) as e:
+        # Cache directory creation failure is more serious, but let's handle it gracefully
+        import tempfile
+        cache_dir = Path(tempfile.mkdtemp(prefix="rag_cache_"))
+        cfg["paths"]["cache_dir"] = str(cache_dir)
     
     return cfg
 
@@ -89,23 +130,23 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
 async def process_query(query: str, config: Dict[str, Any]) -> Dict[str, Any]:
     """Process a single query and return formatted response."""
     try:
-        # Temporarily redirect stdout to stderr for progress messages
+        # In subprocess mode, suppress all output except the final JSON
         import sys
         import os
-        from contextlib import redirect_stdout
         
-        # Create a null device to suppress output
-        with open(os.devnull, 'w') as devnull:
-            # Redirect stdout to stderr for progress messages, but capture it
-            original_stdout = sys.stdout
-            
-            try:
-                # Redirect stdout to stderr so progress messages don't interfere with JSON
-                sys.stdout = sys.stderr
+        # Redirect both stdout and stderr to devnull to suppress all output
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+        
+        try:
+            with open(os.devnull, 'w') as devnull:
+                sys.stdout = devnull
+                sys.stderr = devnull
                 results = await run_rag_pipeline(config, query)
-                return create_success_response(results, query)
-            finally:
-                sys.stdout = original_stdout
+            return create_success_response(results, query)
+        finally:
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
                 
     except Exception as e:
         return create_error_response(str(e), query)
