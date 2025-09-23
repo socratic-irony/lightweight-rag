@@ -1,17 +1,17 @@
-"""Main pipeline orchestration for the lightweight RAG system."""
+"""Main RAG pipeline orchestration."""
 
-import json
+import asyncio
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
-
+from typing import List, Dict, Any, Optional
 from rank_bm25 import BM25Okapi
 
 from .models import Chunk
+from .index import tokenize
 from .io_pdf import build_corpus
-from .index import build_bm25, tokenize, update_cache_paths
+from .index import build_bm25, update_cache_paths
 from .scoring import proximity_bonus, ngram_bonus, pattern_bonus
+from .rerank import semantic_rerank  
 from .prf import rm3_expand_query
-from .rerank import semantic_rerank
 from .diversity import apply_diversity_selection, format_results
 
 
@@ -31,16 +31,20 @@ def search_topk(
     semantic_topn: int = 80,
     max_snippet_chars: int = 900,
     include_scores: bool = True,
+    fusion_config: Optional[Dict] = None,
     **kwargs  # Accept additional config parameters
 ) -> List[Dict[str, Any]]:
     """
-    Main search function that combines BM25 with bonuses, optional reranking, and diversity.
+    Main search function with RRF fusion of multiple ranking strategies.
     
     Returns formatted results ready for display.
     """
+    from .fusion import build_ranking_runs, rrf_fuse, fused_diversity_selection
+    
     if not corpus:
         return []
     
+    # Build baseline BM25 + bonuses scores
     q_tokens = tokenize(query)
     base_scores = bm25.get_scores(q_tokens)
 
@@ -62,46 +66,44 @@ def search_topk(
         # Pattern bonus
         scores[i] += pattern_bonus(chunk.text)
 
-    # Get candidate pool
+    # Build candidate pool (larger for fusion)
     order = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-    candidate_pool_size = max(semantic_topn, k) if semantic else max(3 * k, 100)
-    candidates = order[:candidate_pool_size]
+    pool_size = fusion_config.get("bm25", {}).get("pool_size", 200) if fusion_config else max(3 * k, 200)
+    pool = order[:pool_size]
 
-    # Optional semantic reranking
-    if semantic and len(candidates) > 1:
-        candidate_texts = [corpus[i].text for i in candidates]
-        candidate_scores = [scores[i] for i in candidates]
-        
-        # Rerank candidates
-        reranked_scores = semantic_rerank(query, candidate_texts, candidate_scores)
-        
-        # Update scores
-        for i, new_score in enumerate(reranked_scores):
-            scores[candidates[i]] = new_score
-        
-        # Re-sort candidates by new scores
-        candidates = sorted(candidates, key=lambda i: scores[i], reverse=True)
+    # Build configuration for ranking runs
+    run_config = {
+        "prf": kwargs.get("prf_config", {}),
+        "rerank": {"semantic": {"enabled": semantic, "topn": semantic_topn}},
+        "fusion": fusion_config.get("fusion", {}) if fusion_config else {},
+        "diversity": {"enabled": diversity, "per_doc_penalty": div_lambda, "max_per_doc": max_per_doc}
+    }
 
-    # Prepare results for diversity selection
-    candidate_results = [(idx, scores[idx]) for idx in candidates]
-
-    # Apply diversity selection
-    if diversity:
-        diverse_results = apply_diversity_selection(
-            candidate_results, corpus, div_lambda, max_per_doc
-        )
+    # Build multiple ranking runs
+    runs = build_ranking_runs(query, corpus, bm25, tokenized, pool, scores, run_config)
+    
+    # Apply RRF fusion if enabled and we have multiple runs
+    if (len(runs) >= 2 and 
+        fusion_config and 
+        fusion_config.get("fusion", {}).get("rrf", {}).get("enabled", False)):
+        
+        rrf_config = fusion_config["fusion"]["rrf"]
+        fused_candidates = rrf_fuse(runs, C=rrf_config.get("C", 60), cap=rrf_config.get("cap", 200))
     else:
-        diverse_results = candidate_results
+        # Use baseline run if fusion disabled or only one run
+        fused_candidates = runs[0] if runs else pool
 
-    # Take top k results
-    final_results = diverse_results[:k]
+    # Apply diversity selection on fused results
+    if diversity:
+        selected_indices = fused_diversity_selection(fused_candidates, corpus, scores, k, run_config)
+    else:
+        selected_indices = fused_candidates[:k]
 
     # Format results
-    formatted_results = format_results(
-        final_results, corpus, query, max_snippet_chars, include_scores
-    )
-
-    return formatted_results
+    selected_results = [(idx, scores[idx]) for idx in selected_indices]
+    final_results = format_results(selected_results, corpus, query, max_snippet_chars, include_scores)
+    
+    return final_results
 
 
 async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, Any]]:
@@ -168,7 +170,9 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         semantic=cfg["rerank"]["semantic"]["enabled"],
         semantic_topn=cfg["rerank"]["semantic"]["topn"],
         max_snippet_chars=cfg["output"]["max_snippet_chars"],
-        include_scores=cfg["output"]["include_scores"]
+        include_scores=cfg["output"]["include_scores"],
+        fusion_config=cfg,  # Pass full config for fusion
+        prf_config=cfg["prf"]  # Pass PRF config separately
     )
     
     # Apply deterministic sorting if enabled
