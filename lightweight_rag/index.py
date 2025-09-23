@@ -44,8 +44,14 @@ def tokenize(s: str, pattern: str = r"[A-Za-z0-9]+") -> List[str]:
 def build_bm25(corpus: List[Chunk], token_pattern: str = r"[A-Za-z0-9]+") -> Tuple[BM25Okapi, List[List[str]]]:
     """Build BM25 index from corpus, with caching."""
     cached_result = load_bm25_from_cache()
+    
+    # Validate cached BM25 matches current corpus size
     if cached_result is not None:
-        return cached_result
+        bm25, tokenized = cached_result
+        if len(tokenized) == len(corpus):
+            return cached_result
+        else:
+            print(f"BM25 cache mismatch: cached {len(tokenized)} chunks, corpus has {len(corpus)} chunks. Rebuilding...")
     
     print("Building BM25 index...")
     tokenized = [tokenize(chunk.text, token_pattern) for chunk in corpus]
