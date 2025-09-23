@@ -2,7 +2,7 @@
 
 import re
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 import httpx
 
@@ -12,6 +12,12 @@ from .index import (
     get_cached_doi_metadata
 )
 from .performance import create_api_semaphore, process_with_semaphore
+
+
+def _print_quiet(message: str, config: Optional[Dict[str, Any]] = None) -> None:
+    """Print message unless quiet mode is enabled."""
+    if config is None or not config.get("_quiet_mode", False):
+        print(message)
 
 
 async def crossref_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional[DocMeta]:
