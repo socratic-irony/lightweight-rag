@@ -3,7 +3,6 @@
 import re
 import asyncio
 from typing import Optional, List
-from urllib.parse import quote
 
 import httpx
 
@@ -17,7 +16,7 @@ from .performance import create_api_semaphore, process_with_semaphore
 
 async def crossref_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional[DocMeta]:
     """Fetch document metadata from Crossref API."""
-    url = f"https://api.crossref.org/works/{quote(doi, safe='')}"
+    url = f"https://api.crossref.org/works/{doi}"
     try:
         r = await client.get(url, timeout=20)
         r.raise_for_status()
@@ -67,7 +66,7 @@ async def crossref_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional
 
 async def openalex_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional[dict]:
     """Fetch document metadata from OpenAlex API."""
-    url = f"https://api.openalex.org/works/https://doi.org/{quote(doi, safe='')}"
+    url = f"https://api.openalex.org/works/https://doi.org/{doi}"
     try:
         r = await client.get(url, timeout=20)
         r.raise_for_status()
@@ -114,9 +113,9 @@ async def openalex_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional
         return None
 
 
-async def unpaywall_meta_for_doi(client: httpx.AsyncClient, doi: str, email: str = "anonymous@example.com") -> Optional[dict]:
+async def unpaywall_meta_for_doi(client: httpx.AsyncClient, doi: str, email: str = "union-farmers0n@icloud.com") -> Optional[dict]:
     """Fetch document metadata from Unpaywall API."""
-    url = f"https://api.unpaywall.org/v2/{quote(doi, safe='')}?email={quote(email, safe='')}"
+    url = f"https://api.unpaywall.org/v2/{doi}?email={email}"
     try:
         r = await client.get(url, timeout=20)
         r.raise_for_status()
@@ -169,7 +168,7 @@ async def enriched_meta_for_doi_cached(
     use_crossref: bool = True,
     use_openalex: bool = True, 
     use_unpaywall: bool = False,
-    unpaywall_email: str = "anonymous@example.com"
+    unpaywall_email: str = "union-farmers0n@icloud.com"
 ) -> Optional[DocMeta]:
     """
     Fetch enriched document metadata from multiple APIs with caching.
@@ -373,7 +372,7 @@ async def batch_enriched_lookup(
     use_crossref: bool = True,
     use_openalex: bool = True, 
     use_unpaywall: bool = False,
-    unpaywall_email: str = "anonymous@example.com"
+    unpaywall_email: str = "union-farmers0n@icloud.com"
 ) -> List[Optional[DocMeta]]:
     """
     Batch lookup DOIs from multiple APIs with concurrent processing and caching.

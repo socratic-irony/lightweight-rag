@@ -3,6 +3,8 @@
 import os
 import glob
 import sys
+import re
+import unicodedata
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -19,18 +21,133 @@ def _print_if_not_quiet(message: str, config: Dict[str, Any] = None):
         print(message, file=sys.stderr if config and config.get("_quiet_mode") else sys.stdout)
 
 
+def is_text_quality_good(text: str, min_readable_ratio: float = 0.7) -> bool:
+    """
+    Check if extracted text has good quality (not garbled/encoded).
+    
+    Args:
+        text: Text to check
+        min_readable_ratio: Minimum ratio of readable characters required
+        
+    Returns:
+        True if text quality is acceptable, False otherwise
+    """
+    if not text or len(text.strip()) < 10:
+        return False
+    
+    # Count control characters (excluding common whitespace)
+    control_chars = 0
+    printable_chars = 0
+    
+    for char in text:
+        if ord(char) < 32 and char not in '\t\n\r':  # Control characters except tab, newline, carriage return
+            control_chars += 1
+        elif char.isprintable() or char.isspace():
+            printable_chars += 1
+    
+    total_chars = len(text)
+    if total_chars == 0:
+        return False
+    
+    # Calculate ratios
+    control_ratio = control_chars / total_chars
+    printable_ratio = printable_chars / total_chars
+    
+    # Reject if too many control characters or too few printable characters
+    if control_ratio > 0.1:  # More than 10% control characters is suspicious
+        return False
+    
+    if printable_ratio < min_readable_ratio:  # Less than 70% printable characters
+        return False
+    
+    # Check for excessive repeated patterns that might indicate encoding issues
+    # Look for sequences of 5+ identical characters (excluding spaces)
+    repeated_pattern = re.findall(r'(.)\1{4,}', text)
+    non_space_repeats = [p for p in repeated_pattern if p not in ' \t\n\r']
+    if len(non_space_repeats) > 3:  # Too many repeated patterns
+        return False
+    
+    # Check for reasonable character distribution
+    # Text should have some common letters
+    common_chars = set('etaoinshrdlucmfwypvbgkjqxz ETAOINSHRDLUCMFWYPVBGKJQXZ')
+    text_chars = set(text.lower())
+    if len(text_chars & common_chars) < 5:  # Should have at least 5 common characters
+        return False
+    
+    return True
+
+
+def clean_text(text: str) -> str:
+    """
+    Clean and normalize extracted text.
+    
+    Args:
+        text: Raw text from PDF extraction
+        
+    Returns:
+        Cleaned text
+    """
+    if not text:
+        return ""
+    
+    # Remove null bytes and other problematic control characters
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    
+    # Normalize unicode
+    text = unicodedata.normalize('NFKC', text)
+    
+    # Clean up excessive whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
+
 # -------------------------
 # PDF Text Extraction
 # -------------------------
 
 def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
-    """Extract text from each page of a PDF."""
+    """Extract text from each page of a PDF with quality validation."""
     pages = []
     try:
         doc = fitz.open(pdf_path)
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
+            
+            # Try different extraction methods if quality is poor
             text = page.get_text()
+            
+            # Clean and validate text quality
+            text = clean_text(text)
+            
+            if not is_text_quality_good(text):
+                # Try alternative extraction method
+                try:
+                    # Try extracting as textpage with different options
+                    textpage = page.get_textpage()
+                    alt_text = textpage.extractText()
+                    alt_text = clean_text(alt_text)
+                    
+                    if is_text_quality_good(alt_text):
+                        text = alt_text
+                    else:
+                        # Try blocks extraction
+                        blocks = page.get_text("blocks")
+                        block_text = " ".join([block[4] for block in blocks if isinstance(block[4], str)])
+                        block_text = clean_text(block_text)
+                        
+                        if is_text_quality_good(block_text):
+                            text = block_text
+                        else:
+                            # Log warning about poor text quality
+                            print(f"Warning: Poor text quality detected in {pdf_path}, page {page_num + 1}")
+                            # Still include the page but mark it
+                            text = f"[TEXT_QUALITY_WARNING] {text}"
+                            
+                except Exception as e:
+                    print(f"Alternative extraction failed for {pdf_path}, page {page_num + 1}: {e}")
+            
             pages.append({
                 "page_number": page_num + 1,  # 1-based
                 "text": text
@@ -128,7 +245,7 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 use_crossref=citation_config.get("crossref", True),
                 use_openalex=citation_config.get("openalex", True),
                 use_unpaywall=citation_config.get("unpaywall", False),
-                unpaywall_email=citation_config.get("unpaywall_email", "anonymous@example.com")
+                unpaywall_email=citation_config.get("unpaywall_email", "union-farmers0n@icloud.com")
             )
             
             for doi, enriched_meta in zip(dois_to_fetch, enriched_results):
@@ -160,15 +277,29 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
         # Create chunks for each page
         for page_data in pages:
             text = page_data["text"].strip()
-            if text:  # Skip empty pages
-                chunk = Chunk(
-                    doc_id=doc_id,
-                    source=os.path.basename(str(pdf_file)),
-                    page=page_data["page_number"],
-                    text=text,
-                    meta=meta
-                )
-                corpus.append(chunk)
+            
+            # Skip empty pages or pages with text quality warnings
+            if not text:
+                continue
+                
+            # Check if this page has a text quality warning
+            if text.startswith("[TEXT_QUALITY_WARNING]"):
+                print(f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to poor text quality")
+                continue
+            
+            # Final quality check before adding to corpus
+            if not is_text_quality_good(text):
+                print(f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to failed quality check")
+                continue
+            
+            chunk = Chunk(
+                doc_id=doc_id,
+                source=os.path.basename(str(pdf_file)),
+                page=page_data["page_number"],
+                text=text,
+                meta=meta
+            )
+            corpus.append(chunk)
 
         doc_id += 1
     
