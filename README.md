@@ -18,8 +18,10 @@ A fast, minimal PDF → BM25 → top-k retrieval system with smart caching, quer
 - **Pattern Recognition**: Identifies academic answer patterns ("we propose", "method")
 
 ### 🧠 **Advanced Retrieval**
+- **Reciprocal Rank Fusion (RRF)**: Combines multiple ranking strategies for better results
 - **Diversity Control**: Prevents over-representation from single documents
 - **Semantic Reranking**: Optional CPU-based sentence-transformers integration
+- **Multi-Run Ranking**: Fuses baseline BM25, RM3 expansion, semantic, and robust query variants
 - **Caching System**: Intelligent caching of parsed PDFs, indices, and metadata
 - **Academic Citations**: Automatic DOI extraction with Crossref/OpenAlex integration
 
@@ -133,6 +135,14 @@ rerank:
     model: "sentence-transformers/all-MiniLM-L6-v2"
   final_top_k: 8      # Results to return
 
+fusion:
+  rrf:
+    enabled: true      # Enable Reciprocal Rank Fusion
+    C: 60              # RRF parameter (higher = less aggressive fusion)
+    cap: 200           # Max items per run to consider in fusion
+  robust_query:
+    enabled: true      # Enable robust query variant run
+
 performance:
   api_semaphore_size: 5      # Max concurrent API calls
   pdf_thread_workers: null   # None = auto (num_cores), or set manually  
@@ -166,6 +176,28 @@ python rag.py \
 - **Search**: Multi-stage ranking with lexical → bonus → semantic → diversity
 - **Enrichment**: DOI detection, Crossref lookup, and citation formatting
 
+### 🔄 Reciprocal Rank Fusion (RRF)
+
+RRF combines multiple ranking strategies to improve result quality:
+
+1. **Baseline BM25**: Standard BM25 scoring with proximity and n-gram bonuses
+2. **RM3 Expansion**: Query expansion using pseudo-relevance feedback (if enabled)
+3. **Semantic Reranking**: Sentence-transformer based reranking (if enabled)
+4. **Robust Query**: Normalized query variant to catch phrasing variations
+
+Each strategy produces a ranked list of candidates. RRF then combines these using the formula:
+
+```
+RRF_score(d) = Σ(1 / (C + rank_i(d)))
+```
+
+Where:
+- `d` is a document
+- `rank_i(d)` is the rank of document `d` in run `i`
+- `C` is the fusion parameter (default: 60)
+
+This approach is particularly effective when different ranking methods find complementary relevant documents.
+
 ## 🧪 Testing
 
 This project includes a comprehensive test suite covering:
@@ -191,13 +223,66 @@ python -m pytest tests/test_integration.py -v
 
 ## 🔧 Advanced Usage
 
-### Batch Processing
+### Python Module Import
 ```python
-# Python API usage (if extended)
-from lightweight_rag import query_pdfs
+import lightweight_rag
 
-config = load_full_config("config.yaml")
-results = query_pdfs("your query", config)
+# Simple usage with default config
+config = lightweight_rag.get_default_config()
+config["paths"]["pdf_dir"] = "./my_papers"
+results = lightweight_rag.query_pdfs("machine learning", config)
+
+# Async usage for better performance
+import asyncio
+results = await lightweight_rag.run_rag_pipeline(config, "deep learning")
+```
+
+### Installation as Package
+```bash
+# Install from source
+pip install -e .
+
+# Install with semantic reranking support
+pip install -e ".[semantic]"
+
+# Install development dependencies
+pip install -e ".[dev]"
+```
+
+### Using as Subprocess from Node.js
+```javascript
+const { spawn } = require('child_process');
+
+function queryPDF(query, config = {}) {
+  return new Promise((resolve, reject) => {
+    const process = spawn('python', ['-m', 'lightweight_rag.cli_subprocess', '--json']);
+    
+    let output = '';
+    process.stdout.on('data', (data) => output += data);
+    process.on('close', (code) => {
+      if (code === 0) resolve(JSON.parse(output));
+      else reject(new Error(`Process failed: ${code}`));
+    });
+    
+    process.stdin.write(JSON.stringify({ query, config }));
+    process.stdin.end();
+  });
+}
+```
+
+## 🔒 Security Considerations
+
+When using this library:
+
+- **API Keys**: Never hardcode API keys. Use environment variables or config files excluded from version control
+- **Email Configuration**: Set `crossref_email` and `unpaywall_email` via environment variables (`RAG_PATHS_CROSSREF_EMAIL`, `RAG_CITATIONS_UNPAYWALL_EMAIL`)
+- **PDF Content**: Be mindful of sensitive content in PDFs when using in production environments
+- **Subprocess Mode**: When using CLI subprocess interface, validate input queries to prevent injection attacks
+
+Example secure configuration:
+```bash
+export RAG_PATHS_CROSSREF_EMAIL="your-email@domain.com"
+export RAG_CITATIONS_UNPAYWALL_EMAIL="your-email@domain.com"
 ```
 
 ## 📄 License
