@@ -263,7 +263,7 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 use_crossref=citation_config.get("crossref", True),
                 use_openalex=citation_config.get("openalex", True),
                 use_unpaywall=citation_config.get("unpaywall", False),
-                unpaywall_email=citation_config.get("unpaywall_email", "union-farmers0n@icloud.com")
+                unpaywall_email=citation_config.get("unpaywall_email", "REDACTED")
             )
             
             for doi, enriched_meta in zip(dois_to_fetch, enriched_results):

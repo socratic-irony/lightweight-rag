@@ -44,7 +44,7 @@ async def test_known_working_doi():
             print(f"✗ OpenAlex: ERROR - {e}")
         
         # Test Unpaywall
-        unpaywall_url = f"https://api.unpaywall.org/v2/{working_doi}?email=union-farmers0n@icloud.com"
+        unpaywall_url = f"https://api.unpaywall.org/v2/{working_doi}?email=REDACTED"
         print(f"Unpaywall URL: {unpaywall_url}")
         try:
             r = await client.get(unpaywall_url, timeout=20)
