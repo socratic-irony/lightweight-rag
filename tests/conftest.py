@@ -18,9 +18,9 @@ from lightweight_rag.index import (
 )
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_caching():
-    """Automatically mock caching functions to avoid file system dependencies."""
+    """Mock caching functions to avoid file system dependencies."""
     with patch('lightweight_rag.index.load_bm25_from_cache', return_value=None):
         with patch('lightweight_rag.index.save_bm25_to_cache'):
             with patch('lightweight_rag.index.load_corpus_from_cache', return_value=None):

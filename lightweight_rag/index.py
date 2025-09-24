@@ -97,6 +97,8 @@ def load_manifest() -> Optional[Dict[str, Any]]:
 
 def save_manifest(manifest: Dict[str, Any]) -> None:
     """Save manifest to cache."""
+    # Ensure parent directory exists
+    MANIFEST_CACHE.parent.mkdir(parents=True, exist_ok=True)
     with open(MANIFEST_CACHE, "w") as f:
         json.dump(manifest, f)
 
@@ -128,23 +130,28 @@ def load_corpus_from_cache() -> Optional[List[Chunk]]:
 
 def save_corpus_to_cache(corpus: List[Chunk]) -> None:
     """Save corpus to cache."""
-    with gzip.open(CORPUS_CACHE, "wt", encoding="utf-8") as f:
-        for chunk in corpus:
-            data = {
-                "doc_id": chunk.doc_id,
-                "source": chunk.source,
-                "page": chunk.page,
-                "text": chunk.text,
-                "meta": {
-                    "title": chunk.meta.title,
-                    "authors": chunk.meta.authors,
-                    "year": chunk.meta.year,
-                    "doi": chunk.meta.doi,
-                    "source": chunk.meta.source,
-                    "start_page": chunk.meta.start_page
+    try:
+        # Ensure parent directory exists
+        CORPUS_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(CORPUS_CACHE, "wt", encoding="utf-8") as f:
+            for chunk in corpus:
+                data = {
+                    "doc_id": chunk.doc_id,
+                    "source": chunk.source,
+                    "page": chunk.page,
+                    "text": chunk.text,
+                    "meta": {
+                        "title": chunk.meta.title,
+                        "authors": chunk.meta.authors,
+                        "year": chunk.meta.year,
+                        "doi": chunk.meta.doi,
+                        "source": chunk.meta.source,
+                        "start_page": chunk.meta.start_page
+                    }
                 }
-            }
-            f.write(json.dumps(data) + "\n")
+                f.write(json.dumps(data) + "\n")
+    except Exception as e:
+        raise
 
 
 def load_bm25_from_cache() -> Optional[Tuple[BM25Okapi, List[List[str]]]]:
@@ -165,6 +172,9 @@ def load_bm25_from_cache() -> Optional[Tuple[BM25Okapi, List[List[str]]]]:
 
 def save_bm25_to_cache(bm25: BM25Okapi, tokenized: List[List[str]]) -> None:
     """Save BM25 index to cache."""
+    # Ensure parent directory exists
+    TOKENIZED_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    BM25_CACHE.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(TOKENIZED_CACHE, "wb") as f:
         pickle.dump(tokenized, f)
     with gzip.open(BM25_CACHE, "wb") as f:
@@ -277,3 +287,84 @@ def manifest_for_dir_with_text_hash(pdf_dir: Path, corpus: Optional[List[Chunk]]
         manifest[file_path] = entry
     
     return manifest
+
+
+def detect_changed_files(pdf_dir: Path, cached_manifest: Optional[Dict[str, Any]]) -> Tuple[List[Path], List[Path], List[Path]]:
+    """
+    Detect which PDF files have changed, are new, or have been removed.
+    
+    Returns:
+        Tuple of (new_files, changed_files, removed_files)
+    """
+    current_files = set(pdf_dir.glob("*.pdf"))
+    new_files = []
+    changed_files = []
+    removed_files = []
+    
+    if not cached_manifest:
+        # No cache exists, all files are new
+        return list(current_files), [], []
+    
+    # Handle both old and new manifest formats
+    if "files" in cached_manifest:
+        # Old format: {"files": [{"path": ..., "mtime": ..., "size": ...}]}
+        cached_files = {Path(f["path"]) for f in cached_manifest["files"]}
+        cached_file_info = {Path(f["path"]): f for f in cached_manifest["files"]}
+    else:
+        # New format: {"/path/to/file.pdf": {"size": ..., "mtime": ...}}
+        cached_files = {Path(f) for f in cached_manifest.keys()}
+        cached_file_info = {Path(f): info for f, info in cached_manifest.items()}
+    
+    # Find new and changed files
+    for pdf_file in current_files:
+        if pdf_file not in cached_files:
+            new_files.append(pdf_file)
+        else:
+            # Check if file has changed
+            stat = pdf_file.stat()
+            cached_info = cached_file_info[pdf_file]
+            
+            # Extract mtime and size from cached info (handle both formats)
+            if "mtime" in cached_info and "size" in cached_info:
+                cached_mtime = cached_info["mtime"]
+                cached_size = cached_info["size"]
+            else:
+                # Should not happen with current code, but handle gracefully
+                new_files.append(pdf_file)
+                continue
+                
+            if stat.st_mtime != cached_mtime or stat.st_size != cached_size:
+                changed_files.append(pdf_file)
+    
+    # Find removed files
+    for cached_file in cached_files:
+        if cached_file not in current_files:
+            removed_files.append(cached_file)
+    
+    return new_files, changed_files, removed_files
+
+
+def filter_corpus_by_files(corpus: List[Chunk], keep_files: List[Path]) -> List[Chunk]:
+    """
+    Filter corpus to only include chunks from specified files.
+    
+    Args:
+        corpus: List of chunks to filter
+        keep_files: List of file paths to keep (can be Path objects or strings)
+        
+    Returns:
+        Filtered list of chunks
+    """
+    if not corpus:
+        return []
+    
+    # Convert keep_files to a set of basenames for comparison
+    keep_basenames = {Path(f).name for f in keep_files}
+    
+    filtered_corpus = []
+    for chunk in corpus:
+        # chunk.source is typically just the basename (e.g., "document.pdf")
+        if chunk.source in keep_basenames:
+            filtered_corpus.append(chunk)
+    
+    return filtered_corpus

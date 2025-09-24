@@ -185,7 +185,8 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     from .performance import process_with_thread_pool, get_optimal_worker_count
     from .index import (
         load_manifest, save_manifest, load_corpus_from_cache, 
-        save_corpus_to_cache, manifest_for_dir_with_text_hash, manifest_for_dir
+        save_corpus_to_cache, manifest_for_dir_with_text_hash, manifest_for_dir,
+        detect_changed_files, filter_corpus_by_files
     )
     
     pdf_files = list(pdf_dir.glob("*.pdf"))
@@ -193,34 +194,65 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
         print(f"No PDFs found in {pdf_dir}")
         return []
 
-    # Check if we can load from cache
+    # Check cache and detect changes for incremental processing
     cached_corpus = load_corpus_from_cache()
     cached_manifest = load_manifest()
-    current_manifest = manifest_for_dir(pdf_dir)
     
-    if cached_corpus and cached_manifest == current_manifest:
-        print(f"Loaded {len(cached_corpus)} chunks from cache")
-        return cached_corpus
-
-    print(f"Processing {len(pdf_files)} PDFs...")
+    # Detect which files have changed
+    new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
+    files_to_process = new_files + changed_files
     
-    # Extract text from PDFs (potentially in parallel)
+    # If no files need processing, return cached corpus (filtered for removed files)
+    if not files_to_process and cached_corpus:
+        if removed_files:
+            # Filter out chunks from removed files
+            keep_files = [f for f in pdf_files if f not in removed_files]
+            filtered_corpus = filter_corpus_by_files(cached_corpus, keep_files)
+            print(f"Removed {len(removed_files)} files from cache, {len(filtered_corpus)} chunks remaining")
+            # Update cache with filtered corpus
+            save_corpus_to_cache(filtered_corpus)
+            current_manifest = manifest_for_dir_with_text_hash(pdf_dir, filtered_corpus)
+            save_manifest(current_manifest)
+            return filtered_corpus
+        else:
+            print(f"Loaded {len(cached_corpus)} chunks from cache (no changes detected)")
+            return cached_corpus
+    
+    # Log what we're processing
+    if files_to_process:
+        print(f"Processing {len(files_to_process)} changed/new PDFs (out of {len(pdf_files)} total)...")
+        if new_files:
+            print(f"  - {len(new_files)} new files")
+        if changed_files:
+            print(f"  - {len(changed_files)} changed files")
+        if removed_files:
+            print(f"  - {len(removed_files)} removed files")
+    else:
+        print(f"Processing {len(pdf_files)} PDFs (initial build)...")
+    
+    # Only process files that need processing, not all files
+    files_to_process_list = list(files_to_process) if files_to_process else pdf_files
+    
+    # Extract text from PDFs that need processing (potentially in parallel)
     if max_workers is None:
         max_workers = get_optimal_worker_count()
     
-    if max_workers > 1 and len(pdf_files) > 1:
-        print(f"Using {max_workers} workers for PDF processing")
-        pdf_data_list = process_with_thread_pool(
-            extract_pdf_pages, [str(f) for f in pdf_files], max_workers
-        )
+    if files_to_process_list:
+        if max_workers > 1 and len(files_to_process_list) > 1:
+            print(f"Using {max_workers} workers for PDF processing")
+            pdf_data_list = process_with_thread_pool(
+                extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers
+            )
+        else:
+            pdf_data_list = [extract_pdf_pages(str(f)) for f in tqdm(files_to_process_list, desc="Processing PDFs")]
     else:
-        pdf_data_list = [extract_pdf_pages(str(f)) for f in tqdm(pdf_files, desc="Processing PDFs")]
+        pdf_data_list = []
     
     # Collect all DOIs for batch processing
     dois_to_fetch = []
     pdf_metadata = []
     
-    for i, (pdf_file, pages) in enumerate(zip(pdf_files, pdf_data_list)):
+    for i, (pdf_file, pages) in enumerate(zip(files_to_process_list, pdf_data_list)):
         if not pages:
             pdf_metadata.append(None)
             continue
@@ -270,11 +302,11 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 if enriched_meta:
                     doi_meta_map[doi] = enriched_meta
 
-    # Build corpus with fetched metadata
-    corpus = []
+    # Build corpus with fetched metadata from processed files only
+    new_corpus_chunks = []
     doc_id = 0
     
-    for pdf_file, pdf_data in zip(pdf_files, pdf_metadata):
+    for pdf_file, pdf_data in zip(files_to_process_list, pdf_metadata):
         if pdf_data is None:
             continue
             
@@ -317,14 +349,29 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 text=text,
                 meta=meta
             )
-            corpus.append(chunk)
+            new_corpus_chunks.append(chunk)
 
         doc_id += 1
     
+    # Merge with cached corpus chunks from unchanged files
+    final_corpus = []
+    
+    if cached_corpus and files_to_process:
+        # Keep chunks from files that weren't processed (unchanged files)
+        unchanged_files = [f for f in pdf_files if f not in files_to_process and f not in removed_files]
+        cached_chunks_to_keep = filter_corpus_by_files(cached_corpus, unchanged_files)
+        final_corpus.extend(cached_chunks_to_keep)
+        print(f"Keeping {len(cached_chunks_to_keep)} chunks from {len(unchanged_files)} unchanged files")
+    
+    # Add newly processed chunks
+    final_corpus.extend(new_corpus_chunks)
+    
     # Cache the results
-    save_corpus_to_cache(corpus)
-    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, corpus)
+    save_corpus_to_cache(final_corpus)
+    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, final_corpus)
     save_manifest(enhanced_manifest)
 
-    print(f"Extracted {len(corpus)} chunks from {len(pdf_files)} PDFs")
-    return corpus
+    processed_files_count = len(files_to_process_list) if files_to_process else len(pdf_files)
+    print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
+    print(f"Total corpus: {len(final_corpus)} chunks from {len(pdf_files)} PDFs")
+    return final_corpus
