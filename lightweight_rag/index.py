@@ -76,8 +76,6 @@ def update_cache_paths(cache_dir: Path) -> None:
     MANIFEST_CACHE = CACHE_DIR / "manifest.json"
     TOKENIZED_CACHE = CACHE_DIR / "tokenized.pkl.gz"
     DOI_CACHE = CACHE_DIR / "dois.json"
-    print(f"DEBUG: update_cache_paths - CORPUS_CACHE: {CORPUS_CACHE}")
-    print(f"DEBUG: update_cache_paths - MANIFEST_CACHE: {MANIFEST_CACHE}")
 
 
 def manifest_for_dir(pdf_dir: Path) -> Dict[str, Any]:
@@ -88,32 +86,25 @@ def manifest_for_dir(pdf_dir: Path) -> Dict[str, Any]:
 
 def load_manifest() -> Optional[Dict[str, Any]]:
     """Load cached manifest."""
-    print(f"DEBUG: load_manifest - MANIFEST_CACHE path: {MANIFEST_CACHE}")
-    print(f"DEBUG: load_manifest - file exists: {MANIFEST_CACHE.exists()}")
     if not MANIFEST_CACHE.exists():
         return None
     try:
         with open(MANIFEST_CACHE, "r") as f:
-            result = json.load(f)
-            print(f"DEBUG: load_manifest - loaded manifest with {len(result)} keys")
-            return result
-    except Exception as e:
-        print(f"DEBUG: load_manifest - exception: {e}")
+            return json.load(f)
+    except Exception:
         return None
 
 
 def save_manifest(manifest: Dict[str, Any]) -> None:
     """Save manifest to cache."""
-    print(f"DEBUG: save_manifest - saving to {MANIFEST_CACHE}")
+    # Ensure parent directory exists
+    MANIFEST_CACHE.parent.mkdir(parents=True, exist_ok=True)
     with open(MANIFEST_CACHE, "w") as f:
         json.dump(manifest, f)
-    print(f"DEBUG: save_manifest - saved manifest with {len(manifest)} keys")
 
 
 def load_corpus_from_cache() -> Optional[List[Chunk]]:
     """Load corpus from cache."""
-    print(f"DEBUG: load_corpus_from_cache - CORPUS_CACHE path: {CORPUS_CACHE}")
-    print(f"DEBUG: load_corpus_from_cache - file exists: {CORPUS_CACHE.exists()}")
     if not CORPUS_CACHE.exists():
         return None
     try:
@@ -139,8 +130,9 @@ def load_corpus_from_cache() -> Optional[List[Chunk]]:
 
 def save_corpus_to_cache(corpus: List[Chunk]) -> None:
     """Save corpus to cache."""
-    print(f"DEBUG: save_corpus_to_cache - saving {len(corpus)} chunks to {CORPUS_CACHE}")
     try:
+        # Ensure parent directory exists
+        CORPUS_CACHE.parent.mkdir(parents=True, exist_ok=True)
         with gzip.open(CORPUS_CACHE, "wt", encoding="utf-8") as f:
             for chunk in corpus:
                 data = {
@@ -158,9 +150,7 @@ def save_corpus_to_cache(corpus: List[Chunk]) -> None:
                     }
                 }
                 f.write(json.dumps(data) + "\n")
-        print(f"DEBUG: save_corpus_to_cache - successfully saved, file exists: {CORPUS_CACHE.exists()}")
     except Exception as e:
-        print(f"DEBUG: save_corpus_to_cache - exception: {e}")
         raise
 
 
@@ -182,6 +172,9 @@ def load_bm25_from_cache() -> Optional[Tuple[BM25Okapi, List[List[str]]]]:
 
 def save_bm25_to_cache(bm25: BM25Okapi, tokenized: List[List[str]]) -> None:
     """Save BM25 index to cache."""
+    # Ensure parent directory exists
+    TOKENIZED_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    BM25_CACHE.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(TOKENIZED_CACHE, "wb") as f:
         pickle.dump(tokenized, f)
     with gzip.open(BM25_CACHE, "wb") as f:
@@ -322,23 +315,14 @@ def detect_changed_files(pdf_dir: Path, cached_manifest: Optional[Dict[str, Any]
         cached_files = {Path(f) for f in cached_manifest.keys()}
         cached_file_info = {Path(f): info for f, info in cached_manifest.items()}
     
-    # Debug logging
-    print(f"DEBUG: Current files: {[str(f) for f in current_files]}")
-    print(f"DEBUG: Cached files: {[str(f) for f in cached_files]}")
-    print(f"DEBUG: Cached manifest format: {'old' if 'files' in cached_manifest else 'new'}")
-    
     # Find new and changed files
     for pdf_file in current_files:
         if pdf_file not in cached_files:
-            print(f"DEBUG: {pdf_file} not in cached files - marking as new")
             new_files.append(pdf_file)
         else:
             # Check if file has changed
             stat = pdf_file.stat()
             cached_info = cached_file_info[pdf_file]
-            
-            print(f"DEBUG: Checking {pdf_file}: current mtime={stat.st_mtime}, size={stat.st_size}")
-            print(f"DEBUG: Cached info: {cached_info}")
             
             # Extract mtime and size from cached info (handle both formats)
             if "mtime" in cached_info and "size" in cached_info:
@@ -346,15 +330,11 @@ def detect_changed_files(pdf_dir: Path, cached_manifest: Optional[Dict[str, Any]
                 cached_size = cached_info["size"]
             else:
                 # Should not happen with current code, but handle gracefully
-                print(f"DEBUG: {pdf_file} missing mtime/size in cache - marking as new")
                 new_files.append(pdf_file)
                 continue
                 
             if stat.st_mtime != cached_mtime or stat.st_size != cached_size:
-                print(f"DEBUG: {pdf_file} has changed - cached mtime={cached_mtime}, size={cached_size}")
                 changed_files.append(pdf_file)
-            else:
-                print(f"DEBUG: {pdf_file} unchanged")
     
     # Find removed files
     for cached_file in cached_files:
