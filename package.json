@@ -1,0 +1,55 @@
+{
+  "name": "lightweight-rag",
+  "version": "0.1.0",
+  "description": "Node.js integration for lightweight-rag: A fast, minimal PDF → BM25 → top-k retrieval system with smart caching, query expansion, and academic citations. Uses Python subprocess for RAG operations.",
+  "main": "examples/nodejs_integration.js",
+  "scripts": {
+    "test": "node examples/nodejs_integration.js",
+    "example": "node examples/nodejs_integration.js",
+    "install-python-deps": "pip install -r requirements.txt",
+    "install-python-semantic": "pip install numpy>=1.24.0 sentence-transformers>=2.2.0"
+  },
+  "keywords": [
+    "rag",
+    "retrieval",
+    "bm25",
+    "pdf",
+    "search",
+    "nlp",
+    "academic",
+    "citations",
+    "python",
+    "subprocess",
+    "machine-learning",
+    "information-retrieval"
+  ],
+  "author": "Lightweight RAG Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/socratic-irony/lightweight-rag.git"
+  },
+  "bugs": {
+    "url": "https://github.com/socratic-irony/lightweight-rag/issues"
+  },
+  "homepage": "https://github.com/socratic-irony/lightweight-rag#readme",
+  "engines": {
+    "node": ">=12.9.0"
+  },
+  "files": [
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "preferGlobal": false,
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}
