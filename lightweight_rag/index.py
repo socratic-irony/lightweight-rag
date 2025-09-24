@@ -76,6 +76,8 @@ def update_cache_paths(cache_dir: Path) -> None:
     MANIFEST_CACHE = CACHE_DIR / "manifest.json"
     TOKENIZED_CACHE = CACHE_DIR / "tokenized.pkl.gz"
     DOI_CACHE = CACHE_DIR / "dois.json"
+    print(f"DEBUG: update_cache_paths - CORPUS_CACHE: {CORPUS_CACHE}")
+    print(f"DEBUG: update_cache_paths - MANIFEST_CACHE: {MANIFEST_CACHE}")
 
 
 def manifest_for_dir(pdf_dir: Path) -> Dict[str, Any]:
@@ -86,23 +88,32 @@ def manifest_for_dir(pdf_dir: Path) -> Dict[str, Any]:
 
 def load_manifest() -> Optional[Dict[str, Any]]:
     """Load cached manifest."""
+    print(f"DEBUG: load_manifest - MANIFEST_CACHE path: {MANIFEST_CACHE}")
+    print(f"DEBUG: load_manifest - file exists: {MANIFEST_CACHE.exists()}")
     if not MANIFEST_CACHE.exists():
         return None
     try:
         with open(MANIFEST_CACHE, "r") as f:
-            return json.load(f)
-    except Exception:
+            result = json.load(f)
+            print(f"DEBUG: load_manifest - loaded manifest with {len(result)} keys")
+            return result
+    except Exception as e:
+        print(f"DEBUG: load_manifest - exception: {e}")
         return None
 
 
 def save_manifest(manifest: Dict[str, Any]) -> None:
     """Save manifest to cache."""
+    print(f"DEBUG: save_manifest - saving to {MANIFEST_CACHE}")
     with open(MANIFEST_CACHE, "w") as f:
         json.dump(manifest, f)
+    print(f"DEBUG: save_manifest - saved manifest with {len(manifest)} keys")
 
 
 def load_corpus_from_cache() -> Optional[List[Chunk]]:
     """Load corpus from cache."""
+    print(f"DEBUG: load_corpus_from_cache - CORPUS_CACHE path: {CORPUS_CACHE}")
+    print(f"DEBUG: load_corpus_from_cache - file exists: {CORPUS_CACHE.exists()}")
     if not CORPUS_CACHE.exists():
         return None
     try:
@@ -128,23 +139,30 @@ def load_corpus_from_cache() -> Optional[List[Chunk]]:
 
 def save_corpus_to_cache(corpus: List[Chunk]) -> None:
     """Save corpus to cache."""
-    with gzip.open(CORPUS_CACHE, "wt", encoding="utf-8") as f:
-        for chunk in corpus:
-            data = {
-                "doc_id": chunk.doc_id,
-                "source": chunk.source,
-                "page": chunk.page,
-                "text": chunk.text,
-                "meta": {
-                    "title": chunk.meta.title,
-                    "authors": chunk.meta.authors,
-                    "year": chunk.meta.year,
-                    "doi": chunk.meta.doi,
-                    "source": chunk.meta.source,
-                    "start_page": chunk.meta.start_page
+    print(f"DEBUG: save_corpus_to_cache - saving {len(corpus)} chunks to {CORPUS_CACHE}")
+    try:
+        with gzip.open(CORPUS_CACHE, "wt", encoding="utf-8") as f:
+            for chunk in corpus:
+                data = {
+                    "doc_id": chunk.doc_id,
+                    "source": chunk.source,
+                    "page": chunk.page,
+                    "text": chunk.text,
+                    "meta": {
+                        "title": chunk.meta.title,
+                        "authors": chunk.meta.authors,
+                        "year": chunk.meta.year,
+                        "doi": chunk.meta.doi,
+                        "source": chunk.meta.source,
+                        "start_page": chunk.meta.start_page
+                    }
                 }
-            }
-            f.write(json.dumps(data) + "\n")
+                f.write(json.dumps(data) + "\n")
+        print(f"DEBUG: save_corpus_to_cache - successfully saved to {CORPUS_CACHE}")
+        print(f"DEBUG: save_corpus_to_cache - file exists after save: {CORPUS_CACHE.exists()}")
+    except Exception as e:
+        print(f"DEBUG: save_corpus_to_cache - exception: {e}")
+        raise
 
 
 def load_bm25_from_cache() -> Optional[Tuple[BM25Okapi, List[List[str]]]]:
@@ -277,3 +295,97 @@ def manifest_for_dir_with_text_hash(pdf_dir: Path, corpus: Optional[List[Chunk]]
         manifest[file_path] = entry
     
     return manifest
+
+
+def detect_changed_files(pdf_dir: Path, cached_manifest: Optional[Dict[str, Any]]) -> Tuple[List[Path], List[Path], List[Path]]:
+    """
+    Detect which PDF files have changed, are new, or have been removed.
+    
+    Returns:
+        Tuple of (new_files, changed_files, removed_files)
+    """
+    current_files = set(pdf_dir.glob("*.pdf"))
+    new_files = []
+    changed_files = []
+    removed_files = []
+    
+    if not cached_manifest:
+        # No cache exists, all files are new
+        return list(current_files), [], []
+    
+    # Handle both old and new manifest formats
+    if "files" in cached_manifest:
+        # Old format: {"files": [{"path": ..., "mtime": ..., "size": ...}]}
+        cached_files = {Path(f["path"]) for f in cached_manifest["files"]}
+        cached_file_info = {Path(f["path"]): f for f in cached_manifest["files"]}
+    else:
+        # New format: {"/path/to/file.pdf": {"size": ..., "mtime": ...}}
+        cached_files = {Path(f) for f in cached_manifest.keys()}
+        cached_file_info = {Path(f): info for f, info in cached_manifest.items()}
+    
+    # Debug logging
+    print(f"DEBUG: Current files: {[str(f) for f in current_files]}")
+    print(f"DEBUG: Cached files: {[str(f) for f in cached_files]}")
+    print(f"DEBUG: Cached manifest format: {'old' if 'files' in cached_manifest else 'new'}")
+    
+    # Find new and changed files
+    for pdf_file in current_files:
+        if pdf_file not in cached_files:
+            print(f"DEBUG: {pdf_file} not in cached files - marking as new")
+            new_files.append(pdf_file)
+        else:
+            # Check if file has changed
+            stat = pdf_file.stat()
+            cached_info = cached_file_info[pdf_file]
+            
+            print(f"DEBUG: Checking {pdf_file}: current mtime={stat.st_mtime}, size={stat.st_size}")
+            print(f"DEBUG: Cached info: {cached_info}")
+            
+            # Extract mtime and size from cached info (handle both formats)
+            if "mtime" in cached_info and "size" in cached_info:
+                cached_mtime = cached_info["mtime"]
+                cached_size = cached_info["size"]
+            else:
+                # Should not happen with current code, but handle gracefully
+                print(f"DEBUG: {pdf_file} missing mtime/size in cache - marking as new")
+                new_files.append(pdf_file)
+                continue
+                
+            if stat.st_mtime != cached_mtime or stat.st_size != cached_size:
+                print(f"DEBUG: {pdf_file} has changed - cached mtime={cached_mtime}, size={cached_size}")
+                changed_files.append(pdf_file)
+            else:
+                print(f"DEBUG: {pdf_file} unchanged")
+    
+    # Find removed files
+    for cached_file in cached_files:
+        if cached_file not in current_files:
+            removed_files.append(cached_file)
+    
+    return new_files, changed_files, removed_files
+
+
+def filter_corpus_by_files(corpus: List[Chunk], keep_files: List[Path]) -> List[Chunk]:
+    """
+    Filter corpus to only include chunks from specified files.
+    
+    Args:
+        corpus: List of chunks to filter
+        keep_files: List of file paths to keep (can be Path objects or strings)
+        
+    Returns:
+        Filtered list of chunks
+    """
+    if not corpus:
+        return []
+    
+    # Convert keep_files to a set of basenames for comparison
+    keep_basenames = {Path(f).name for f in keep_files}
+    
+    filtered_corpus = []
+    for chunk in corpus:
+        # chunk.source is typically just the basename (e.g., "document.pdf")
+        if chunk.source in keep_basenames:
+            filtered_corpus.append(chunk)
+    
+    return filtered_corpus
