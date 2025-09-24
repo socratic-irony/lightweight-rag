@@ -158,8 +158,7 @@ def save_corpus_to_cache(corpus: List[Chunk]) -> None:
                     }
                 }
                 f.write(json.dumps(data) + "\n")
-        print(f"DEBUG: save_corpus_to_cache - successfully saved to {CORPUS_CACHE}")
-        print(f"DEBUG: save_corpus_to_cache - file exists after save: {CORPUS_CACHE.exists()}")
+        print(f"DEBUG: save_corpus_to_cache - successfully saved, file exists: {CORPUS_CACHE.exists()}")
     except Exception as e:
         print(f"DEBUG: save_corpus_to_cache - exception: {e}")
         raise

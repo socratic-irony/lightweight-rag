@@ -380,12 +380,46 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     final_corpus.extend(new_corpus_chunks)
     
     # Cache the results
+    from .index import CORPUS_CACHE, MANIFEST_CACHE
     print(f"DEBUG: About to save corpus with {len(final_corpus)} chunks")
-    save_corpus_to_cache(final_corpus)
+    print(f"DEBUG: final_corpus contents: {[f'Chunk({c.doc_id}, {c.source}, {c.page}, text_len={len(c.text)})' for c in final_corpus]}")
+    print(f"DEBUG: CORPUS_CACHE path before save: {CORPUS_CACHE}")
+    print(f"DEBUG: MANIFEST_CACHE path before save: {MANIFEST_CACHE}")
+    try:
+        from . import index
+        print(f"DEBUG: Calling index.save_corpus_to_cache directly")
+        index.save_corpus_to_cache(final_corpus)
+        print(f"DEBUG: save_corpus_to_cache completed successfully")
+    except Exception as e:
+        print(f"DEBUG: save_corpus_to_cache failed with exception: {e}")
+        import traceback
+        traceback.print_exc()
+        
     print(f"DEBUG: About to save manifest")
-    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, final_corpus)
-    save_manifest(enhanced_manifest)
+    try:
+        enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, final_corpus)
+        print(f"DEBUG: Calling index.save_manifest directly")
+        index.save_manifest(enhanced_manifest)
+        print(f"DEBUG: save_manifest completed successfully")
+    except Exception as e:
+        print(f"DEBUG: save_manifest failed with exception: {e}")
+        import traceback
+        traceback.print_exc()
+        
     print(f"DEBUG: Finished saving cache")
+    
+    # Verify files exist after save
+    print(f"DEBUG: CORPUS_CACHE path after save: {CORPUS_CACHE}")
+    print(f"DEBUG: MANIFEST_CACHE path after save: {MANIFEST_CACHE}")
+    print(f"DEBUG: After save - corpus exists: {CORPUS_CACHE.exists()}, manifest exists: {MANIFEST_CACHE.exists()}")
+    
+    # List directory contents to see what's actually there
+    cache_dir = CORPUS_CACHE.parent
+    if cache_dir.exists():
+        files = list(cache_dir.glob("*"))
+        print(f"DEBUG: Cache directory contents: {[f.name for f in files]}")
+    else:
+        print(f"DEBUG: Cache directory doesn't exist: {cache_dir}")
 
     processed_files_count = len(files_to_process_list) if files_to_process else len(pdf_files)
     print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
