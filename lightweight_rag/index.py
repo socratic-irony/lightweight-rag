@@ -41,7 +41,8 @@ def tokenize(s: str, pattern: str = r"[A-Za-z0-9]+") -> List[str]:
 # BM25 Building
 # -------------------------
 
-def build_bm25(corpus: List[Chunk], token_pattern: str = r"[A-Za-z0-9]+") -> Tuple[BM25Okapi, List[List[str]]]:
+def build_bm25(corpus: List[Chunk], token_pattern: str = r"[A-Za-z0-9]+", 
+              k1: float = 1.5, b: float = 0.75) -> Tuple[BM25Okapi, List[List[str]]]:
     """Build BM25 index from corpus, with caching."""
     cached_result = load_bm25_from_cache()
     
@@ -55,10 +56,10 @@ def build_bm25(corpus: List[Chunk], token_pattern: str = r"[A-Za-z0-9]+") -> Tup
     
     print("Building BM25 index...")
     tokenized = [tokenize(chunk.text, token_pattern) for chunk in corpus]
-    bm25 = BM25Okapi(tokenized)
+    bm25 = BM25Okapi(tokenized, k1=k1, b=b)
     
     save_bm25_to_cache(bm25, tokenized)
-    print(f"BM25 index built and cached for {len(corpus)} chunks")
+    print(f"BM25 index built and cached for {len(corpus)} chunks (k1={k1}, b={b})")
     return bm25, tokenized
 
 

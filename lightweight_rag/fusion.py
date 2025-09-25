@@ -105,7 +105,31 @@ def build_ranking_runs(
             run_rm3 = rank_by_bm25_order(bm25, expanded, pool, tokenized)
             runs.append(run_rm3)
     
-    # Run C: Semantic reranking (optional)
+    # Run C: Heuristic reranking (lightweight)
+    if config.get("rerank", {}).get("heuristic", {}).get("enabled", True):
+        from .rerank import heuristic_rerank
+        
+        # Prepare candidates for heuristic reranking
+        heuristic_topn = min(config.get("rerank", {}).get("heuristic", {}).get("topn", 150), len(pool))
+        candidates_for_heuristic = pool[:heuristic_topn]
+        
+        candidate_dicts = []
+        for i in candidates_for_heuristic:
+            candidate_dicts.append({
+                'text': corpus[i].text,
+                'bm25': baseline_scores[i],
+                'rank': candidates_for_heuristic.index(i),
+                'index': i
+            })
+        
+        # Apply heuristic reranking
+        reranked_candidates = heuristic_rerank(query, candidate_dicts)
+        
+        # Extract reranked ordering
+        run_heuristic = [c['index'] for c in reranked_candidates]
+        runs.append(run_heuristic)
+    
+    # Run D: Semantic reranking (optional, heavier)
     if config.get("rerank", {}).get("semantic", {}).get("enabled", False):
         semantic_config = config["rerank"]["semantic"]
         topn = min(semantic_config.get("topn", 120), len(pool))
@@ -118,6 +142,23 @@ def build_ranking_runs(
         reranked_scores = semantic_rerank(query, candidate_texts, candidate_scores)
         
         # Create mapping from index to new score
+        score_map = {candidates_for_semantic[i]: reranked_scores[i] 
+                     for i in range(len(candidates_for_semantic))}
+        
+        # Sort pool by semantic scores (candidates not in semantic keep original scores)
+        run_semantic = sorted(pool, 
+                             key=lambda i: score_map.get(i, baseline_scores[i]), 
+                             reverse=True)
+        runs.append(run_semantic)
+    
+    # Run E: Robust query variant (optional)
+    if config.get("fusion", {}).get("robust_query", {}).get("enabled", True):
+        robust_q = robustify_query(query)
+        if robust_q != query.lower().strip():
+            run_robust = rank_by_bm25_order(bm25, robust_q, pool, tokenized)
+            runs.append(run_robust)
+    
+    return runs
         score_map = {candidates_for_semantic[i]: reranked_scores[i] 
                      for i in range(len(candidates_for_semantic))}
         

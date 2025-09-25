@@ -1,6 +1,9 @@
-"""Semantic reranking with sentence transformers."""
+"""Semantic reranking with sentence transformers and heuristic reranking."""
 
-from typing import List, Optional
+import math
+import re
+from typing import List, Optional, Dict
+from collections import Counter, defaultdict
 
 # Optional imports for semantic reranking
 try:
@@ -12,6 +15,114 @@ except ImportError:
 
 
 _model = None
+
+
+def tokenize_for_rerank(text: str) -> List[str]:
+    """Tokenize text for heuristic reranking (similar to index tokenization)."""
+    text = text.lower()
+    text = re.sub(r"\s+", " ", text)
+    # Keep underscores/hyphens as separators but also preserve them joined
+    tokens = re.findall(r"[a-z0-9_]+(?:-[a-z0-9_]+)?", text)
+    return tokens
+
+
+def idf_weight(query_terms: List[str], df: Dict[str, int], N: int, floor: float = 1.5) -> Dict[str, float]:
+    """Calculate IDF weights for query terms."""
+    weights = {}
+    for term in query_terms:
+        df_t = max(1, df.get(term, 1))
+        weights[term] = max(floor, math.log((N - df_t + 0.5) / (df_t + 0.5)))
+    return weights
+
+
+def coverage_score(query_terms: List[str], doc_terms: List[str], idf: Dict[str, float]) -> float:
+    """Score based on coverage of query terms in document."""
+    present = set(query_terms) & set(doc_terms)
+    if not present:
+        return 0.0
+    return sum(idf[t] for t in present) / (sum(idf.values()) + 1e-9)
+
+
+def proximity_score(query_terms: List[str], doc_terms: List[str], window: int = 20) -> float:
+    """Score based on proximity of query terms in document."""
+    positions = defaultdict(list)
+    for i, term in enumerate(doc_terms):
+        positions[term].append(i)
+    
+    hits = [term for term in query_terms if positions.get(term)]
+    if len(hits) < 2:
+        return 0.0
+    
+    # Compute minimal span covering any two distinct hit terms
+    best_span = None
+    for i, t1 in enumerate(hits):
+        for t2 in hits[i+1:]:
+            for p1 in positions[t1]:
+                # Find closest p2 to p1
+                p2 = min(positions[t2], key=lambda x: abs(x - p1))
+                span = abs(p2 - p1) + 1
+                if best_span is None or span < best_span:
+                    best_span = span
+    
+    if best_span is None:
+        return 0.0
+    return max(0.0, (window - best_span) / window)
+
+
+def phrase_boost(query: str, doc_text: str) -> float:
+    """Score boost for phrase matches in document."""
+    q_tokens = tokenize_for_rerank(query)
+    d_tokens = tokenize_for_rerank(doc_text)
+    
+    q = " ".join(q_tokens)
+    d = " ".join(d_tokens)
+    
+    # Check for bigrams
+    bigrams = [" ".join(q_tokens[i:i+2]) for i in range(len(q_tokens)-1)]
+    hits = sum(1 for bg in bigrams if bg in d)
+    
+    return min(1.0, 0.15 * hits)  # Up to +0.15
+
+
+def heuristic_rerank(
+    query: str, 
+    candidates: List[Dict], 
+    df: Optional[Dict[str, int]] = None, 
+    N: int = 100000,
+    alpha: float = 0.6, 
+    beta: float = 0.3, 
+    gamma: float = 0.1
+) -> List[Dict]:
+    """
+    Heuristic reranking based on coverage, proximity, and phrase matching.
+    
+    Args:
+        query: Query string
+        candidates: List of dicts with keys: {'text': str, 'bm25': float, 'rank': int}
+        df: Dict term -> doc freq (optional; uses defaults if None)
+        N: Corpus size for IDF calculation
+        alpha: Weight for coverage score
+        beta: Weight for proximity score  
+        gamma: Weight for phrase boost
+        
+    Returns:
+        Candidates list with 'rerank_score' added and sorted by that score
+    """
+    q_terms = tokenize_for_rerank(query)
+    if not q_terms:
+        return candidates
+    
+    idf = idf_weight(q_terms, df or {}, N)
+    
+    for candidate in candidates:
+        d_terms = tokenize_for_rerank(candidate['text'])
+        cov = coverage_score(q_terms, d_terms, idf)
+        prox = proximity_score(q_terms, d_terms, window=24)
+        phrase = phrase_boost(query, candidate['text'])
+        
+        candidate['rerank_score'] = alpha * cov + beta * prox + gamma * phrase
+    
+    return sorted(candidates, key=lambda x: x['rerank_score'], reverse=True)
 
 
 def embed_texts(texts: List[str], model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> Optional["np.ndarray"]:
