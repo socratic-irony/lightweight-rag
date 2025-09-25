@@ -470,12 +470,12 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
             text_chunks = chunk_text(text, doc_title, chunking_config)
             
             # Create Chunk objects for each text chunk
-            for chunk_idx, chunk_text in enumerate(text_chunks):
+            for chunk_idx, chunk_content in enumerate(text_chunks):
                 chunk = Chunk(
                     doc_id=doc_id,
                     source=os.path.basename(str(pdf_file)),
                     page=page_data["page_number"],
-                    text=chunk_text,
+                    text=chunk_content,
                     meta=meta
                 )
                 new_corpus_chunks.append(chunk)
