@@ -159,23 +159,6 @@ def build_ranking_runs(
             runs.append(run_robust)
     
     return runs
-        score_map = {candidates_for_semantic[i]: reranked_scores[i] 
-                     for i in range(len(candidates_for_semantic))}
-        
-        # Sort pool by semantic scores (candidates not in semantic keep original scores)
-        run_semantic = sorted(pool, 
-                             key=lambda i: score_map.get(i, baseline_scores[i]), 
-                             reverse=True)
-        runs.append(run_semantic)
-    
-    # Run D: Robust query variant (optional)
-    if config.get("fusion", {}).get("robust_query", {}).get("enabled", False):
-        q_robust = robustify_query(query)
-        if q_robust != query.lower():
-            run_robust = rank_by_bm25_order(bm25, q_robust, pool, tokenized)
-            runs.append(run_robust)
-    
-    return runs
 
 
 def fused_diversity_selection(
