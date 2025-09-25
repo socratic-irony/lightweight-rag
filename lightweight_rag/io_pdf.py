@@ -121,6 +121,127 @@ def normalize_text(s: str) -> str:
     return s
 
 
+def split_into_sentences(text: str) -> List[str]:
+    """
+    Simple sentence splitter using regex patterns.
+    
+    Args:
+        text: Input text to split
+        
+    Returns:
+        List of sentences
+    """
+    # Simple sentence boundaries - avoid complex lookbehind patterns
+    # First replace common abbreviations to protect them
+    text = re.sub(r'\b(Dr|Mr|Mrs|Ms|Prof|vs|etc|i\.e|e\.g|cf|al)\.',
+                  lambda m: m.group(0).replace('.', '~DOT~'), text)
+    
+    # Split on sentence endings
+    sentences = re.split(r'[.!?]+\s+', text)
+    
+    # Restore the dots in abbreviations
+    sentences = [s.replace('~DOT~', '.').strip() for s in sentences]
+    
+    # Filter out empty sentences and very short ones
+    sentences = [s for s in sentences if s and len(s.strip()) > 10]
+    
+    return sentences
+
+
+def create_sliding_windows(text: str, window_chars: int = 300, overlap_chars: int = 50) -> List[str]:
+    """
+    Create sliding windows of text with overlap.
+    
+    Args:
+        text: Input text
+        window_chars: Size of each window in characters
+        overlap_chars: Number of characters to overlap between windows
+        
+    Returns:
+        List of text windows
+    """
+    if len(text) <= window_chars:
+        return [text]
+    
+    windows = []
+    start = 0
+    
+    while start < len(text):
+        end = start + window_chars
+        
+        # If this would be the last window and it's very small, merge with previous
+        if end >= len(text):
+            window = text[start:]
+        else:
+            window = text[start:end]
+            
+            # Try to end on sentence boundary if possible
+            last_sentence_end = max(
+                window.rfind('.'),
+                window.rfind('!'),
+                window.rfind('?')
+            )
+            
+            if last_sentence_end > window_chars * 0.7:  # At least 70% of window used
+                window = text[start:start + last_sentence_end + 1]
+                end = start + last_sentence_end + 1
+        
+        windows.append(window.strip())
+        
+        # Stop if we've reached the end
+        if end >= len(text):
+            break
+            
+        # Move start forward by (window_size - overlap)
+        start = end - overlap_chars
+        
+        # Ensure we don't go backwards
+        if start <= len(windows[-1]) - window_chars + overlap_chars:
+            break
+    
+    return [w for w in windows if len(w.strip()) > 20]  # Filter very short windows
+
+
+def chunk_text(text: str, doc_title: str = "", chunking_config: dict = None) -> List[str]:
+    """
+    Chunk text according to configuration.
+    
+    Args:
+        text: Input text to chunk
+        doc_title: Document title for context enrichment
+        chunking_config: Configuration for chunking strategy
+        
+    Returns:
+        List of text chunks
+    """
+    if not chunking_config:
+        chunking_config = {"page_split": "page"}
+    
+    page_split = chunking_config.get("page_split", "page")
+    
+    if page_split == "sentence":
+        sentences = split_into_sentences(text)
+        # Add document context to each sentence if available
+        if doc_title:
+            sentences = [f"{doc_title} | {sent}" for sent in sentences]
+        return sentences
+    
+    elif page_split == "sliding":
+        window_chars = chunking_config.get("window_chars", 300)
+        overlap_chars = chunking_config.get("overlap_chars", 50)
+        windows = create_sliding_windows(text, window_chars, overlap_chars)
+        # Add document context to each window if available
+        if doc_title:
+            windows = [f"{doc_title} | {window}" for window in windows]
+        return windows
+    
+    else:  # page_split == "page" or default
+        # Single chunk with optional context
+        if doc_title:
+            return [f"{doc_title} | {text}"]
+        return [text]
+
+
 # -------------------------
 # PDF Text Extraction
 # -------------------------
@@ -179,7 +300,8 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
 async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None, 
                      cache_seconds: int = 604800, 
                      max_concurrent_api: int = 5,
-                     citation_config: Optional[dict] = None) -> List[Chunk]:
+                     citation_config: Optional[dict] = None,
+                     chunking_config: Optional[dict] = None) -> List[Chunk]:
     """Build corpus by extracting text from all PDFs in directory."""
     import httpx
     from .performance import process_with_thread_pool, get_optimal_worker_count
@@ -324,7 +446,9 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
             meta.concepts = enriched_meta.concepts
             meta.oa_url = enriched_meta.oa_url
 
-        # Create chunks for each page
+        # Create chunks for each page using configured chunking strategy
+        doc_title = meta.title or os.path.basename(str(pdf_file)).replace('.pdf', '')
+        
         for page_data in pages:
             text = page_data["text"].strip()
             
@@ -342,14 +466,19 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 print(f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to failed quality check")
                 continue
             
-            chunk = Chunk(
-                doc_id=doc_id,
-                source=os.path.basename(str(pdf_file)),
-                page=page_data["page_number"],
-                text=text,
-                meta=meta
-            )
-            new_corpus_chunks.append(chunk)
+            # Apply chunking strategy
+            text_chunks = chunk_text(text, doc_title, chunking_config)
+            
+            # Create Chunk objects for each text chunk
+            for chunk_idx, chunk_content in enumerate(text_chunks):
+                chunk = Chunk(
+                    doc_id=doc_id,
+                    source=os.path.basename(str(pdf_file)),
+                    page=page_data["page_number"],
+                    text=chunk_content,
+                    meta=meta
+                )
+                new_corpus_chunks.append(chunk)
 
         doc_id += 1
     

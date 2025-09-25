@@ -42,7 +42,7 @@ class TestIncrementalCaching:
                 
                 # Verify corpus was created
                 assert len(corpus) == 1
-                assert corpus[0].text == "This is page 1 content from test PDF."
+                assert corpus[0].text == "test1 | This is page 1 content from test PDF."  # With context enrichment
                 
                 # Verify cache files were created
                 assert (cache_dir / "corpus.jsonl.gz").exists()
@@ -115,7 +115,7 @@ class TestIncrementalCaching:
                 # Build corpus with one file
                 corpus1 = await build_corpus(pdf_dir, max_workers=1)
                 assert len(corpus1) == 1
-                assert corpus1[0].text == "Content from test1 PDF."
+                assert corpus1[0].text == "test1 | Content from test1 PDF."  # With context enrichment
                 
                 # Add second PDF file
                 test_pdf2 = pdf_dir / "test2.pdf"
@@ -127,8 +127,8 @@ class TestIncrementalCaching:
                 # Verify both files are in corpus
                 assert len(corpus2) == 2
                 texts = [chunk.text for chunk in corpus2]
-                assert "Content from test1 PDF." in texts
-                assert "Content from test2 PDF." in texts
+                assert "test1 | Content from test1 PDF." in texts  # With context enrichment
+                assert "test2 | Content from test2 PDF." in texts  # With context enrichment
     
     @pytest.mark.asyncio
     async def test_modified_file_triggers_reprocessing(self):
@@ -160,7 +160,7 @@ class TestIncrementalCaching:
                 # Build corpus for the first time
                 corpus1 = await build_corpus(pdf_dir, max_workers=1)
                 assert len(corpus1) == 1
-                assert corpus1[0].text == "Original content from PDF."
+                assert corpus1[0].text == "test1 | Original content from PDF."  # With context enrichment
                 assert len(processed_files) == 1
                 
                 # Modify the PDF file (change content and mtime)
@@ -176,5 +176,5 @@ class TestIncrementalCaching:
                 
                 # Verify the file was reprocessed
                 assert len(corpus2) == 1
-                assert corpus2[0].text == "Modified content from PDF."
+                assert corpus2[0].text == "test1 | Modified content from PDF."  # With context enrichment
                 assert len(processed_files) == 1  # Only modified file should be processed

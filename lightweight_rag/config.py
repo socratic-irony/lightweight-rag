@@ -17,14 +17,17 @@ def get_default_config() -> Dict[str, Any]:
             "crossref_email": None,
         },
         "indexing": {
-            "page_split": "page",
-            "window_chars": 1000,
-            "overlap_chars": 120,
+            "page_split": "sliding",
+            "window_chars": 300,
+            "overlap_chars": 60,
+            "text_quality_check": True,
+            "min_readable_ratio": 0.7,
         },
         "bm25": {
-            "k1": 1.5,
-            "b": 0.75,
+            "k1": 1.4,
+            "b": 0.6,
             "build_top_k": 300,
+            "pool_size": 200,
             "token_pattern": "[A-Za-z0-9]+",
         },
         "prf": {
@@ -36,7 +39,7 @@ def get_default_config() -> Dict[str, Any]:
         "bonuses": {
             "proximity": {
                 "enabled": True,
-                "window": 30,
+                "window": 24,
                 "weight": 0.2,
             },
             "ngram": {
@@ -55,14 +58,35 @@ def get_default_config() -> Dict[str, Any]:
             "enabled": True,
             "per_doc_penalty": 0.3,
             "max_per_doc": 2,
+            "mmr": {
+                "enabled": True,
+                "lambda": 0.7,
+            },
         },
         "rerank": {
+            "heuristic": {
+                "enabled": True,
+                "topn": 150,
+                "alpha": 0.6,
+                "beta": 0.3,
+                "gamma": 0.1,
+            },
             "semantic": {
                 "enabled": True,
                 "model": "sentence-transformers/all-MiniLM-L6-v2",
-                "topn": 120,
+                "topn": 80,
             },
             "final_top_k": 8,
+        },
+        "fusion": {
+            "rrf": {
+                "enabled": True,
+                "C": 75,
+                "cap": 200,
+            },
+            "robust_query": {
+                "enabled": True,
+            },
         },
         "citations": {
             "crossref": True,

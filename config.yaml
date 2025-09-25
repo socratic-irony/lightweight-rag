@@ -4,17 +4,17 @@ paths:
   crossref_email: null  # optional; some APIs accept mailto
 
 indexing:
-  page_split: "page"             # "page" | "sentence" | "sliding"
-  window_chars: 1000             # used when page_split != "page"
-  overlap_chars: 120
-  text_quality_check: true       # Enable text quality validation for PDFs
-  min_readable_ratio: 0.7        # Minimum ratio of readable characters (0.0-1.0)
+  page_split: "sliding"           # "page" | "sentence" | "sliding"
+  window_chars: 300               # used when page_split == "sliding" (optimal for precision)
+  overlap_chars: 60               # used when page_split == "sliding" (20% overlap)
+  text_quality_check: true        # Enable text quality validation for PDFs
+  min_readable_ratio: 0.7         # Minimum ratio of readable characters (0.0-1.0)
 
 bm25:
-  k1: 1.5
-  b: 0.75
-  build_top_k: 300               # candidate pool from lexical stage (pre-rerank)
-  pool_size: 200                 # candidates from lexical stage before fusion/rerank
+  k1: 1.4                         # Term frequency saturation (tuned for sliding windows)
+  b: 0.6                          # Document length normalization (tuned for shorter chunks)
+  build_top_k: 300                # candidate pool from lexical stage (pre-rerank)
+  pool_size: 200                  # candidates from lexical stage before fusion/rerank
   token_pattern: "[A-Za-z0-9]+"
 
 prf:                              # RM3
@@ -26,7 +26,7 @@ prf:                              # RM3
 bonuses:
   proximity:
     enabled: true
-    window: 30
+    window: 24                    # Smaller window for sliding chunks (was 30)
     weight: 0.2
   ngram:
     enabled: true
@@ -42,21 +42,30 @@ diversity:
   enabled: true
   per_doc_penalty: 0.3
   max_per_doc: 2
+  mmr:
+    enabled: true                 # Enable MMR for final diversification
+    lambda: 0.7                   # Balance between relevance and diversity
 
 rerank:
+  heuristic:
+    enabled: true                 # Enable lightweight heuristic reranker
+    topn: 150                     # Candidates to rerank heuristically
+    alpha: 0.6                    # Weight for coverage score
+    beta: 0.3                     # Weight for proximity score
+    gamma: 0.1                    # Weight for phrase boost
   semantic:
     enabled: true
     model: "sentence-transformers/all-MiniLM-L6-v2"
-    topn: 120                    # candidates to rerank
-  final_top_k: 8                 # number of items to return/print
+    topn: 80                      # Reduced for efficiency (was 120)
+  final_top_k: 8                  # number of items to return/print
 
 fusion:
   rrf:
-    enabled: true                # Enable Reciprocal Rank Fusion
-    C: 60                        # RRF parameter (higher = less aggressive fusion)
-    cap: 200                     # Max items per run to consider in fusion
+    enabled: true                 # Enable Reciprocal Rank Fusion
+    C: 75                         # RRF parameter (slightly higher for more runs)
+    cap: 200                      # Max items per run to consider in fusion
   robust_query:
-    enabled: true                # Enable robust query variant run
+    enabled: true                 # Enable robust query variant run
 
 citations:
   crossref: true

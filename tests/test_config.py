@@ -33,7 +33,7 @@ class TestDefaultConfig:
         
         # Check some specific values
         assert config["paths"]["pdf_dir"] == "pdfs"
-        assert config["bm25"]["k1"] == 1.5
+        assert config["bm25"]["k1"] == 1.4  # Updated for optimized sliding window performance
         assert config["prf"]["enabled"] is False
         assert config["bonuses"]["proximity"]["enabled"] is True
 
@@ -221,7 +221,7 @@ class TestFullConfigLoad:
                 
                 # Should have all default values
                 assert config["paths"]["pdf_dir"] == "pdfs"
-                assert config["bm25"]["k1"] == 1.5
+                assert config["bm25"]["k1"] == 1.4  # Updated for optimized sliding window performance
     
     def test_full_config_precedence(self):
         """Test configuration precedence: defaults < file < env < CLI."""

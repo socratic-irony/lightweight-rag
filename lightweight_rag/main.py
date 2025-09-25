@@ -99,6 +99,15 @@ def search_topk(
     else:
         selected_indices = fused_candidates[:k]
 
+    # Apply MMR for final diversification if enabled
+    if (run_config.get("diversity", {}).get("mmr", {}).get("enabled", False) and 
+        len(selected_indices) > 1):
+        from .diversity import mmr_selection
+        
+        mmr_lambda = run_config["diversity"]["mmr"].get("lambda", 0.7)
+        mmr_candidates = [(idx, corpus[idx].text, scores[idx]) for idx in selected_indices[:min(20, len(selected_indices))]]
+        selected_indices = mmr_selection(query, mmr_candidates, mmr_lambda, k)
+
     # Format results
     selected_results = [(idx, scores[idx]) for idx in selected_indices]
     final_results = format_results(selected_results, corpus, query, max_snippet_chars, include_scores)
@@ -128,16 +137,19 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         max_workers=cfg["performance"]["pdf_thread_workers"],
         cache_seconds=cfg["citations"]["cache_seconds"],
         max_concurrent_api=cfg["performance"]["api_semaphore_size"],
-        citation_config=cfg["citations"]
+        citation_config=cfg["citations"],
+        chunking_config=cfg["indexing"]
     )
     
     if not corpus:
         print("No documents found or processed.")
         return []
     
-    # Build BM25 index with configurable token pattern
+    # Build BM25 index with configurable parameters
     token_pattern = cfg["bm25"]["token_pattern"]
-    bm25, tokenized = build_bm25(corpus, token_pattern)
+    k1 = cfg["bm25"]["k1"]
+    b = cfg["bm25"]["b"]
+    bm25, tokenized = build_bm25(corpus, token_pattern, k1, b)
     print(f"Indexed {len(corpus)} chunks")
 
     # Query expansion with RM3 if enabled
