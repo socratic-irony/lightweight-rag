@@ -9,11 +9,20 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 import fitz  # PyMuPDF
+import threading
 from tqdm import tqdm
 
 from .models import DocMeta, Chunk, find_doi_in_text
 from .io_biblio import load_biblio_index
 # Import moved inside function to avoid circular dependency
+
+# NOTE: PyMuPDF / MuPDF is known to have thread-safety issues when opening/closing
+# multiple documents concurrently in different threads on some platforms / versions.
+# To prevent intermittent native crashes (EXC_BAD_ACCESS in libmupdf.dylib
+# pdf_minimize_document), we serialize PDF open/close + page extraction with a
+# global lock. This preserves stability when the orchestrator requests multiple
+# worker threads.
+_FITZ_LOCK = threading.Lock()
 
 
 def _print_if_not_quiet(message: str, config: Dict[str, Any] = None):
@@ -248,51 +257,66 @@ def chunk_text(text: str, doc_title: str = "", chunking_config: dict = None) -> 
 # -------------------------
 
 def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
-    """Extract text from each page of a PDF with quality validation."""
-    pages = []
+    """Extract text from each page of a PDF with quality validation.
+
+    Thread-safety: guarded by a global lock to avoid MuPDF native crashes when
+    multiple documents are processed concurrently in different threads.
+    """
+    pages: List[Dict[str, Any]] = []
     try:
-        doc = fitz.open(pdf_path)
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            
-            # Try different extraction methods if quality is poor
-            text = page.get_text()
-            
-            # Clean and validate text quality
-            text = clean_text(text)
-            
-            if not is_text_quality_good(text):
-                # Try alternative extraction method
-                try:
-                    # Try extracting as textpage with different options
-                    textpage = page.get_textpage()
-                    alt_text = textpage.extractText()
-                    alt_text = clean_text(alt_text)
-                    
-                    if is_text_quality_good(alt_text):
-                        text = alt_text
-                    else:
-                        # Try blocks extraction
-                        blocks = page.get_text("blocks")
-                        block_text = " ".join([block[4] for block in blocks if isinstance(block[4], str)])
-                        block_text = clean_text(block_text)
-                        
-                        if is_text_quality_good(block_text):
-                            text = block_text
-                        else:
-                            # Log warning about poor text quality
-                            print(f"Warning: Poor text quality detected in {pdf_path}, page {page_num + 1}")
-                            # Still include the page but mark it
-                            text = f"[TEXT_QUALITY_WARNING] {text}"
-                            
-                except Exception as e:
-                    print(f"Alternative extraction failed for {pdf_path}, page {page_num + 1}: {e}")
-            
-            pages.append({
-                "page_number": page_num + 1,  # 1-based
-                "text": text
-            })
-        doc.close()
+        with _FITZ_LOCK:
+            # Use context manager to ensure deterministic close ordering
+            with fitz.open(pdf_path) as doc:
+                for page_num in range(len(doc)):
+                    page = doc.load_page(page_num)
+
+                    # Try different extraction methods if quality is poor
+                    text = page.get_text()
+
+                    # Clean and validate text quality
+                    text = clean_text(text)
+
+                    if not is_text_quality_good(text):
+                        # Try alternative extraction method
+                        try:
+                            # Try extracting as textpage with different options
+                            textpage = page.get_textpage()
+                            alt_text = textpage.extractText()
+                            alt_text = clean_text(alt_text)
+
+                            if is_text_quality_good(alt_text):
+                                text = alt_text
+                            else:
+                                # Try blocks extraction
+                                blocks = page.get_text("blocks")
+                                block_text = " ".join(
+                                    [block[4] for block in blocks if isinstance(block[4], str)]
+                                )
+                                block_text = clean_text(block_text)
+
+                                if is_text_quality_good(block_text):
+                                    text = block_text
+                                else:
+                                    # Log warning about poor text quality
+                                    print(
+                                        f"Warning: Poor text quality detected in {pdf_path}, page {page_num + 1}"
+                                    )
+                                    # Still include the page but mark it
+                                    text = f"[TEXT_QUALITY_WARNING] {text}"
+
+                        except Exception as e:
+                            print(
+                                f"Alternative extraction failed for {pdf_path}, page {page_num + 1}: {e}"
+                            )
+
+                    pages.append(
+                        {
+                            "page_number": page_num + 1,  # 1-based
+                            "text": text,
+                        }
+                    )
+                    # Help GC release references deterministically per iteration
+                    del page
     except Exception as e:
         print(f"Error reading {pdf_path}: {e}")
     return pages
