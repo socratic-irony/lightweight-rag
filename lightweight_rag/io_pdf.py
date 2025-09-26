@@ -12,6 +12,7 @@ import fitz  # PyMuPDF
 from tqdm import tqdm
 
 from .models import DocMeta, Chunk, find_doi_in_text
+from .io_biblio import load_biblio_index
 # Import moved inside function to avoid circular dependency
 
 
@@ -308,7 +309,7 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     from .index import (
         load_manifest, save_manifest, load_corpus_from_cache, 
         save_corpus_to_cache, manifest_for_dir_with_text_hash, manifest_for_dir,
-        detect_changed_files, filter_corpus_by_files
+        detect_changed_files, filter_corpus_by_files, CACHE_DIR
     )
     
     pdf_files = list(pdf_dir.glob("*.pdf"))
@@ -370,6 +371,28 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     else:
         pdf_data_list = []
     
+    # Load bibliography index if present
+    biblio_map = {}
+    prefer_biblio = True
+    drop_unknown = False
+    include_pandoc_cite = False
+    if citation_config:
+        idx_path = citation_config.get("bibliography_index_path")
+        if idx_path:
+            try:
+                biblio_map = load_biblio_index(idx_path)
+            except Exception:
+                biblio_map = {}
+        prefer_biblio = citation_config.get("prefer_bibliography", True)
+        drop_unknown = citation_config.get("drop_unknown", False)
+        include_pandoc_cite = citation_config.get("include_pandoc_cite", False)
+
+    # Diagnostics counters
+    total_pdfs = len(files_to_process_list) if files_to_process_list else len(pdf_files)
+    matched_via_index = 0
+    matched_via_doi = 0
+    dropped_unknown = 0
+
     # Collect all DOIs for batch processing
     dois_to_fetch = []
     pdf_metadata = []
@@ -379,17 +402,43 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
             pdf_metadata.append(None)
             continue
             
-        # Look for DOI in first 2 pages
-        first_pages_text = " ".join([p["text"] for p in pages[:2]])
-        doi = find_doi_in_text(first_pages_text)
-        
-        meta = DocMeta(
-            title=None,
-            authors=[],
-            year=None,
-            doi=doi,
-            source=os.path.basename(str(pdf_file))
-        )
+        pdf_basename = os.path.basename(str(pdf_file))
+        pdf_key = pdf_basename.lower()
+
+        # If we have a bibliography entry for this PDF, prefer it
+        biblio = biblio_map.get(pdf_key)
+        if biblio and prefer_biblio:
+            authors_fmt = []
+            for a in (biblio.authors or []):
+                fam = (a.get("family") or "").strip()
+                giv = (a.get("given") or "").strip()
+                if fam and giv:
+                    authors_fmt.append(f"{fam}, {giv}")
+                elif fam:
+                    authors_fmt.append(fam)
+            meta = DocMeta(
+                title=biblio.title,
+                authors=authors_fmt,
+                year=biblio.year,
+                doi=biblio.doi,
+                source=pdf_basename,
+                start_page=biblio.start_page,
+                end_page=biblio.end_page,
+                citekey=biblio.citekey
+            )
+            matched_via_index += 1
+            doi = biblio.doi
+        else:
+            # Look for DOI in first 2 pages
+            first_pages_text = " ".join([p["text"] for p in pages[:2]])
+            doi = find_doi_in_text(first_pages_text)
+            meta = DocMeta(
+                title=None,
+                authors=[],
+                year=None,
+                doi=doi,
+                source=pdf_basename
+            )
         
         pdf_metadata.append((meta, pages))
         if doi:
@@ -434,17 +483,24 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
             
         meta, pages = pdf_data
         
-        # Update metadata with fetched info
+        # Update metadata with fetched info (only if missing and doi lookup available)
         if meta.doi and meta.doi in doi_meta_map:
             enriched_meta = doi_meta_map[meta.doi]
-            meta.title = enriched_meta.title
-            meta.authors = enriched_meta.authors
-            meta.year = enriched_meta.year
-            meta.start_page = enriched_meta.start_page
-            meta.venue = enriched_meta.venue
-            meta.publisher = enriched_meta.publisher
-            meta.concepts = enriched_meta.concepts
-            meta.oa_url = enriched_meta.oa_url
+            # Only overwrite empty fields so biblio data remains authoritative
+            if not meta.title:
+                meta.title = enriched_meta.title
+            if not meta.authors:
+                meta.authors = enriched_meta.authors
+            if not meta.year:
+                meta.year = enriched_meta.year
+            if meta.start_page is None:
+                meta.start_page = enriched_meta.start_page
+            # Non-citation extras
+            meta.venue = meta.venue or enriched_meta.venue
+            meta.publisher = meta.publisher or enriched_meta.publisher
+            meta.concepts = meta.concepts or enriched_meta.concepts
+            meta.oa_url = meta.oa_url or enriched_meta.oa_url
+            matched_via_doi += 1
 
         # Create chunks for each page using configured chunking strategy
         doc_title = meta.title or os.path.basename(str(pdf_file)).replace('.pdf', '')
@@ -461,6 +517,13 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 print(f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to poor text quality")
                 continue
             
+            # Drop based on missing author/year if configured (once per document)
+            if drop_unknown and (not meta.authors or meta.year is None):
+                # Mark entire document as dropped and stop processing its pages
+                dropped_unknown += 1
+                # Skip to next document (break inner page loop)
+                break
+
             # Final quality check before adding to corpus
             if not is_text_quality_good(text):
                 print(f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to failed quality check")
@@ -503,4 +566,31 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     processed_files_count = len(files_to_process_list) if files_to_process else len(pdf_files)
     print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
     print(f"Total corpus: {len(final_corpus)} chunks from {len(pdf_files)} PDFs")
+    # Diagnostics summary
+    diagnostics = {
+        "total_pdfs": total_pdfs,
+        "processed_pdfs": processed_files_count,
+        "matched_via_index": matched_via_index,
+        "matched_via_doi": matched_via_doi,
+        "dropped_unknown": dropped_unknown,
+        "new_files": len(new_files) if 'new_files' in locals() and new_files is not None else None,
+        "changed_files": len(changed_files) if 'changed_files' in locals() and changed_files is not None else None,
+        "removed_files": len(removed_files) if 'removed_files' in locals() and removed_files is not None else None,
+        "biblio_index_present": bool(biblio_map)
+    }
+    try:
+        import json
+        diag_path = CACHE_DIR / "warmup_diagnostics.json"
+        diag_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(diag_path, 'w', encoding='utf-8') as f:
+            json.dump(diagnostics, f)
+    except Exception as e:
+        print(f"Failed to write diagnostics: {e}")
+
+    if biblio_map:
+        print(f"Bibliography index matched: {matched_via_index}/{total_pdfs}")
+    if matched_via_doi:
+        print(f"DOI lookups matched: {matched_via_doi}")
+    if drop_unknown:
+        print(f"Dropped unknown (author/year): {dropped_unknown}")
     return final_corpus

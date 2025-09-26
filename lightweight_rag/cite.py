@@ -166,6 +166,21 @@ def author_date_citation(meta: DocMeta, page: Optional[int]) -> str:
         return f"({au}, {yr})"
 
 
+def pandoc_citation(meta: DocMeta, page: Optional[int]) -> Optional[str]:
+    """Return a Pandoc cite string like [@key, p. X] if citekey exists.
+
+    Applies page offset if start_page is available to compute the actual page.
+    """
+    if not meta.citekey:
+        return None
+    actual_page = page
+    if meta.start_page is not None and page is not None:
+        actual_page = meta.start_page + (page - 1)
+    if actual_page:
+        return f"[@{meta.citekey}, p. {actual_page}]"
+    return f"[@{meta.citekey}]"
+
+
 async def enriched_meta_for_doi_cached(
     client: httpx.AsyncClient, 
     doi: str,

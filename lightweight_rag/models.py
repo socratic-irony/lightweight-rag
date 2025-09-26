@@ -18,6 +18,8 @@ class DocMeta:
     doi: Optional[str]
     source: str                 # file path
     start_page: Optional[int] = None  # page offset if citation has page range (e.g., 300-314)
+    end_page: Optional[int] = None    # end of page range when available
+    citekey: Optional[str] = None     # Better BibTeX citekey for Pandoc
     venue: Optional[str] = None       # journal/conference name from OpenAlex
     publisher: Optional[str] = None   # publisher from OpenAlex
     concepts: Optional[List[str]] = None        # concept tags from OpenAlex

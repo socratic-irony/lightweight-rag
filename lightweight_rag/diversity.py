@@ -236,7 +236,8 @@ def format_results(
     corpus: List[Chunk],
     query: str,
     max_snippet_chars: int = 900,
-    include_scores: bool = True
+    include_scores: bool = True,
+    include_pandoc_cite: bool = False
 ) -> List[Dict[str, Any]]:
     """
     Format final results for output.
@@ -251,7 +252,7 @@ def format_results(
     Returns:
         List of formatted result dictionaries
     """
-    from .cite import author_date_citation
+    from .cite import author_date_citation, pandoc_citation
     from .models import window
     
     formatted_results = []
@@ -263,16 +264,19 @@ def format_results(
         citation = author_date_citation(chunk.meta, chunk.page)
         
         # Prepare result dictionary
-        result = {
+        result: Dict[str, Any] = {
             "text": window(chunk.text, max_snippet_chars),
             "citation": citation,
             "source": {
                 "file": chunk.source,
                 "page": chunk.page,
                 "doi": chunk.meta.doi,
-                "title": chunk.meta.title
+                "title": chunk.meta.title,
+                "citekey": chunk.meta.citekey
             }
         }
+        if include_pandoc_cite:
+            result["pandoc"] = pandoc_citation(chunk.meta, chunk.page)
         
         if include_scores:
             result["score"] = round(score, 3)

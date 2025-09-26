@@ -95,6 +95,11 @@ def get_default_config() -> Dict[str, Any]:
             "cache_seconds": 604800,  # 7 days
             "page_offset_from_crossref": True,
             "unpaywall_email": None,  # Required for Unpaywall API if enabled
+            # Bibliography index (Better BibTeX export → normalized JSON)
+            "bibliography_index_path": None,
+            "prefer_bibliography": True,
+            "drop_unknown": True,              # Drop items lacking author or year
+            "include_pandoc_cite": True        # Include [@citekey, p. X] helper in results
         },
         "output": {
             "max_snippet_chars": 900,
