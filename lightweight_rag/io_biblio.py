@@ -60,3 +60,24 @@ def load_biblio_index(path: str | Path) -> Dict[str, BiblioEntry]:
                 continue
     return out
 
+
+def load_biblio_index_by_doi(path: str | Path) -> Dict[str, BiblioEntry]:
+    """Load the bibliography index JSON and return a map by DOI (lowercased)."""
+    p = Path(path)
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+    out: Dict[str, BiblioEntry] = {}
+    if isinstance(data, list):
+        for row in data:
+            try:
+                entry = BiblioEntry(row)
+                if entry.doi:
+                    out[entry.doi.lower()] = entry
+            except Exception:
+                continue
+    return out

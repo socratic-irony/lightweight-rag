@@ -325,21 +325,96 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
     new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
     files_to_process = new_files + changed_files
     
-    # If no files need processing, return cached corpus (filtered for removed files)
+    # If no files need processing, enrich cached corpus with bibliography (and filter) and return
     if not files_to_process and cached_corpus:
+        print(f"Loaded {len(cached_corpus)} chunks from cache (no changes detected)")
+        # Load bibliography maps if configured
+        biblio_map = {}
+        doi_map = {}
+        prefer_biblio = True
+        drop_unknown = False
+        if citation_config:
+            idx_path = citation_config.get("bibliography_index_path")
+            if idx_path:
+                try:
+                    biblio_map = load_biblio_index(idx_path)
+                    from .io_biblio import load_biblio_index_by_doi as _load_doi
+                    doi_map = _load_doi(idx_path)
+                except Exception:
+                    biblio_map = {}
+                    doi_map = {}
+            prefer_biblio = citation_config.get("prefer_bibliography", True)
+            drop_unknown = citation_config.get("drop_unknown", False)
+        matched_via_index = 0
+        # Enrich cached corpus
+        updated_corpus: List[Chunk] = []
+        for chunk in cached_corpus:
+            meta = chunk.meta
+            enriched = False
+            if prefer_biblio and biblio_map:
+                key = os.path.basename(meta.source).lower()
+                entry = biblio_map.get(key)
+                if not entry and meta.doi:
+                    entry = doi_map.get((meta.doi or '').lower())
+                if entry:
+                    authors_fmt = []
+                    for a in (entry.authors or []):
+                        fam = (a.get("family") or "").strip()
+                        giv = (a.get("given") or "").strip()
+                        if fam and giv:
+                            authors_fmt.append(f"{fam}, {giv}")
+                        elif fam:
+                            authors_fmt.append(fam)
+                    if not meta.title:
+                        meta.title = entry.title
+                    if not meta.authors:
+                        meta.authors = authors_fmt
+                    if not meta.year and hasattr(entry, 'year'):
+                        meta.year = entry.year
+                    if not meta.doi and entry.doi:
+                        meta.doi = entry.doi
+                    if meta.start_page is None and entry.start_page is not None:
+                        meta.start_page = entry.start_page
+                    if meta.end_page is None and entry.end_page is not None:
+                        meta.end_page = entry.end_page
+                    if not meta.citekey and entry.citekey:
+                        meta.citekey = entry.citekey
+                    enriched = True
+            if drop_unknown and (not meta.authors or meta.year is None):
+                continue
+            if enriched:
+                matched_via_index += 1
+            updated_corpus.append(chunk)
+        # Filter out removed files if any
         if removed_files:
-            # Filter out chunks from removed files
             keep_files = [f for f in pdf_files if f not in removed_files]
-            filtered_corpus = filter_corpus_by_files(cached_corpus, keep_files)
-            print(f"Removed {len(removed_files)} files from cache, {len(filtered_corpus)} chunks remaining")
-            # Update cache with filtered corpus
-            save_corpus_to_cache(filtered_corpus)
-            current_manifest = manifest_for_dir_with_text_hash(pdf_dir, filtered_corpus)
-            save_manifest(current_manifest)
-            return filtered_corpus
-        else:
-            print(f"Loaded {len(cached_corpus)} chunks from cache (no changes detected)")
-            return cached_corpus
+            updated_corpus = filter_corpus_by_files(updated_corpus, keep_files)
+            print(f"Removed {len(removed_files)} files from cache, {len(updated_corpus)} chunks remaining")
+        # Persist cache and manifest, write diagnostics
+        save_corpus_to_cache(updated_corpus)
+        current_manifest = manifest_for_dir_with_text_hash(pdf_dir, updated_corpus)
+        save_manifest(current_manifest)
+        diagnostics = {
+            "total_pdfs": len(pdf_files),
+            "processed_pdfs": 0,
+            "matched_via_index": matched_via_index,
+            "matched_via_doi": 0,
+            "dropped_unknown": (len(cached_corpus) - len(updated_corpus)) if drop_unknown else 0,
+            "new_files": len(new_files),
+            "changed_files": len(changed_files),
+            "removed_files": len(removed_files),
+            "biblio_index_present": bool(biblio_map)
+        }
+        try:
+            import json
+            from .index import CACHE_DIR as _C
+            diag_path = _C / "warmup_diagnostics.json"
+            diag_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(diag_path, 'w', encoding='utf-8') as f:
+                json.dump(diagnostics, f)
+        except Exception as e:
+            print(f"Failed to write diagnostics: {e}")
+        return updated_corpus
     
     # Log what we're processing
     if files_to_process:
@@ -432,6 +507,35 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
             # Look for DOI in first 2 pages
             first_pages_text = " ".join([p["text"] for p in pages[:2]])
             doi = find_doi_in_text(first_pages_text)
+            # If no basename match, but DOI exists and present in biblio (by DOI), use it
+            if prefer_biblio and (not biblio) and doi:
+                from .io_biblio import load_biblio_index_by_doi as _load_doi
+                doi_map = _load_doi(citation_config.get("bibliography_index_path")) if citation_config else {}
+                by_doi = doi_map.get(doi.lower()) if doi else None
+                if by_doi:
+                    authors_fmt = []
+                    for a in (by_doi.authors or []):
+                        fam = (a.get("family") or "").strip()
+                        giv = (a.get("given") or "").strip()
+                        if fam and giv:
+                            authors_fmt.append(f"{fam}, {giv}")
+                        elif fam:
+                            authors_fmt.append(fam)
+                    meta = DocMeta(
+                        title=by_doi.title,
+                        authors=authors_fmt,
+                        year=by_doi.year,
+                        doi=doi,
+                        source=pdf_basename,
+                        start_page=by_doi.start_page,
+                        end_page=by_doi.end_page,
+                        citekey=by_doi.citekey
+                    )
+                    matched_via_index += 1
+                    pdf_metadata.append((meta, pages))
+                    if doi:
+                        dois_to_fetch.append(doi)
+                    continue
             meta = DocMeta(
                 title=None,
                 authors=[],
