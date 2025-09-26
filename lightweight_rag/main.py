@@ -32,6 +32,7 @@ def search_topk(
     max_snippet_chars: int = 900,
     include_scores: bool = True,
     include_pandoc_cite: bool = False,
+    use_pandoc_as_primary: bool = False,
     fusion_config: Optional[Dict] = None,
     **kwargs  # Accept additional config parameters
 ) -> List[Dict[str, Any]]:
@@ -117,7 +118,8 @@ def search_topk(
         query,
         max_snippet_chars,
         include_scores,
-        include_pandoc_cite
+        include_pandoc_cite,
+        use_pandoc_as_primary
     )
     
     return final_results
@@ -192,6 +194,7 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         max_snippet_chars=cfg["output"]["max_snippet_chars"],
         include_scores=cfg["output"]["include_scores"],
         include_pandoc_cite=cfg["citations"].get("include_pandoc_cite", False),
+        use_pandoc_as_primary=cfg["citations"].get("pandoc_as_primary", False),
         fusion_config=cfg,  # Pass full config for fusion
         prf_config=cfg["prf"]  # Pass PRF config separately
     )

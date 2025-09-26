@@ -99,7 +99,8 @@ def get_default_config() -> Dict[str, Any]:
             "bibliography_index_path": None,
             "prefer_bibliography": True,
             "drop_unknown": True,              # Drop items lacking author or year
-            "include_pandoc_cite": True        # Include [@citekey, p. X] helper in results
+            "include_pandoc_cite": True,       # Include [@citekey, p. X] helper in results
+            "pandoc_as_primary": True          # Use Pandoc cite as primary citation string
         },
         "output": {
             "max_snippet_chars": 900,

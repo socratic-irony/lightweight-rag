@@ -237,7 +237,8 @@ def format_results(
     query: str,
     max_snippet_chars: int = 900,
     include_scores: bool = True,
-    include_pandoc_cite: bool = False
+    include_pandoc_cite: bool = False,
+    use_pandoc_as_primary: bool = False
 ) -> List[Dict[str, Any]]:
     """
     Format final results for output.
@@ -260,8 +261,10 @@ def format_results(
     for chunk_idx, score in selected_results:
         chunk = corpus[chunk_idx]
         
-        # Create citation
-        citation = author_date_citation(chunk.meta, chunk.page)
+        # Create citation strings
+        chicago = author_date_citation(chunk.meta, chunk.page)
+        pandoc = pandoc_citation(chunk.meta, chunk.page)
+        citation = (pandoc if use_pandoc_as_primary and pandoc else chicago)
         
         # Prepare result dictionary
         result: Dict[str, Any] = {
@@ -276,7 +279,7 @@ def format_results(
             }
         }
         if include_pandoc_cite:
-            result["pandoc"] = pandoc_citation(chunk.meta, chunk.page)
+            result["pandoc"] = pandoc
         
         if include_scores:
             result["score"] = round(score, 3)
