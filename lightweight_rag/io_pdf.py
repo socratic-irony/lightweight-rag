@@ -345,6 +345,9 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                     doi_map = {}
             prefer_biblio = citation_config.get("prefer_bibliography", True)
             drop_unknown = citation_config.get("drop_unknown", False)
+        # Track per-document (PDF) enrichment and drops to avoid inflating counts by chunk volume
+        matched_docs = set()
+        dropped_docs = set()
         matched_via_index = 0
         # Enrich cached corpus
         updated_corpus: List[Chunk] = []
@@ -381,9 +384,17 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                         meta.citekey = entry.citekey
                     enriched = True
             if drop_unknown and (not meta.authors or meta.year is None):
+                # mark doc as dropped (per source) and skip chunk
+                try:
+                    dropped_docs.add(os.path.basename(str(meta.source)).lower())
+                except Exception:
+                    pass
                 continue
             if enriched:
-                matched_via_index += 1
+                try:
+                    matched_docs.add(os.path.basename(str(meta.source)).lower())
+                except Exception:
+                    pass
             updated_corpus.append(chunk)
         # Filter out removed files if any
         if removed_files:
@@ -397,9 +408,11 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
         diagnostics = {
             "total_pdfs": len(pdf_files),
             "processed_pdfs": 0,
-            "matched_via_index": matched_via_index,
+            # count unique documents enriched via bibliography index
+            "matched_via_index": len(matched_docs) if biblio_map else 0,
             "matched_via_doi": 0,
-            "dropped_unknown": (len(cached_corpus) - len(updated_corpus)) if drop_unknown else 0,
+            # count unique documents dropped due to missing author/year
+            "dropped_unknown": len(dropped_docs) if drop_unknown else 0,
             "new_files": len(new_files),
             "changed_files": len(changed_files),
             "removed_files": len(removed_files),
