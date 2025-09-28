@@ -684,6 +684,27 @@ async def build_corpus(pdf_dir: Path, max_workers: Optional[int] = None,
                 )
                 new_corpus_chunks.append(chunk)
 
+        # After finishing this PDF, update warmup diagnostics for UI polling
+        try:
+            import json as _json
+            diag_path = CACHE_DIR / "warmup_diagnostics.json"
+            diag_path.parent.mkdir(parents=True, exist_ok=True)
+            diagnostics_partial = {
+                "total_pdfs": total_pdfs,
+                "processed_pdfs": i + 1,
+                "matched_via_index": len(matched_docs) if biblio_map else 0,
+                "matched_via_doi": matched_via_doi,
+                "dropped_unknown": len(dropped_docs) if drop_unknown else 0,
+                "new_files": len(new_files) if 'new_files' in locals() and new_files is not None else None,
+                "changed_files": len(changed_files) if 'changed_files' in locals() and changed_files is not None else None,
+                "removed_files": len(removed_files) if 'removed_files' in locals() and removed_files is not None else None,
+                "biblio_index_present": bool(biblio_map)
+            }
+            with open(diag_path, 'w', encoding='utf-8') as _f:
+                _json.dump(diagnostics_partial, _f)
+        except Exception:
+            pass
+
         doc_id += 1
     
     # Merge with cached corpus chunks from unchanged files
