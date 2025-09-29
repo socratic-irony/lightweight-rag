@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Tests for core utility functions in lightweight-rag."""
 
-import pytest
 import sys
 from pathlib import Path
 
@@ -12,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lightweight_rag.index import tokenize
 from lightweight_rag.models import window, find_doi_in_text, DOI_RE, ANSWER_PATTERNS, STOP
 from lightweight_rag.scoring import ngram_bonus, proximity_bonus, pattern_bonus
+from lightweight_rag.io_pdf import create_sliding_windows
 
 
 class TestTokenize:
@@ -275,3 +275,30 @@ class TestConstants:
         assert DOI_RE is not None
         # Test that it matches a basic DOI
         assert DOI_RE.search("10.1234/test") is not None
+
+
+class TestCreateSlidingWindows:
+    """Ensure sliding window chunking stays on whole words."""
+
+    def test_windows_align_to_word_boundaries(self):
+        text = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau"
+        windows = create_sliding_windows(text, window_chars=40, overlap_chars=10)
+        source_words = set(text.split())
+        assert windows, "Expected at least one window"
+        for window_text in windows:
+            tokens = window_text.split()
+            assert tokens, "Window should contain words"
+            for token in tokens:
+                assert token in source_words, f"Token {token} should match full words from source"
+
+    def test_preserves_hyphenated_words(self):
+        text = "well-known phenomena include long-term analysis across cross-border contexts"
+        windows = create_sliding_windows(text, window_chars=35, overlap_chars=5)
+        assert any("well-known" in win for win in windows)
+        assert all("well-" not in win or "well-known" in win for win in windows)
+
+    def test_handles_tokens_longer_than_window(self):
+        long_word = "supercalifragilisticexpialidocious"
+        text = f"intro {long_word} outro"
+        windows = create_sliding_windows(text, window_chars=10, overlap_chars=5)
+        assert any(long_word in win for win in windows)

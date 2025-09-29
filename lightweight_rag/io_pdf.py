@@ -173,43 +173,53 @@ def create_sliding_windows(text: str, window_chars: int = 300, overlap_chars: in
     if len(text) <= window_chars:
         return [text]
     
-    windows = []
-    start = 0
-    
-    while start < len(text):
-        end = start + window_chars
-        
-        # If this would be the last window and it's very small, merge with previous
-        if end >= len(text):
-            window = text[start:]
+    words = text.split()
+    if not words:
+        return []
+
+    windows: List[str] = []
+    current_words: List[str] = []
+    current_length = 0
+    index = 0
+
+    while index < len(words):
+        word = words[index]
+        word_length = len(word)
+        # Include a space when appending additional words
+        additional_length = word_length if not current_words else word_length + 1
+
+        if current_length + additional_length <= window_chars or not current_words:
+            current_words.append(word)
+            current_length += additional_length
+            index += 1
         else:
-            window = text[start:end]
-            
-            # Try to end on sentence boundary if possible
-            last_sentence_end = max(
-                window.rfind('.'),
-                window.rfind('!'),
-                window.rfind('?')
-            )
-            
-            if last_sentence_end > window_chars * 0.7:  # At least 70% of window used
-                window = text[start:start + last_sentence_end + 1]
-                end = start + last_sentence_end + 1
-        
-        windows.append(window.strip())
-        
-        # Stop if we've reached the end
-        if end >= len(text):
-            break
-            
-        # Move start forward by (window_size - overlap)
-        start = end - overlap_chars
-        
-        # Ensure we don't go backwards
-        if start <= len(windows[-1]) - window_chars + overlap_chars:
-            break
-    
-    return [w for w in windows if len(w.strip()) > 20]  # Filter very short windows
+            window_text = ' '.join(current_words).strip()
+            if window_text:
+                windows.append(window_text)
+
+            if overlap_chars > 0 and current_words:
+                overlap_words: List[str] = []
+                overlap_length = 0
+                j = len(current_words) - 1
+                while j >= 0 and overlap_length < overlap_chars:
+                    token = current_words[j]
+                    token_length = len(token) if not overlap_words else len(token) + 1
+                    overlap_length += token_length
+                    overlap_words.insert(0, token)
+                    j -= 1
+                current_words = overlap_words
+                current_length = sum(len(tok) for tok in current_words) + max(len(current_words) - 1, 0)
+            else:
+                current_words = []
+                current_length = 0
+
+    # Append any remaining words as the final window
+    if current_words:
+        window_text = ' '.join(current_words).strip()
+        if window_text:
+            windows.append(window_text)
+
+    return [w for w in windows if len(w.strip()) > 20]
 
 
 def chunk_text(text: str, doc_title: str = "", chunking_config: dict = None) -> List[str]:
