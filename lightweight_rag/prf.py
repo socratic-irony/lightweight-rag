@@ -5,28 +5,28 @@ from typing import List
 
 from rank_bm25 import BM25Okapi
 
-from .models import Chunk, STOP
 from .index import tokenize
+from .models import STOP, Chunk
 
 
 def rm3_expand_query(
-    query: str, 
-    bm25: BM25Okapi, 
-    tokenized: List[List[str]], 
-    corpus: List[Chunk], 
-    fb_docs: int = 5, 
-    fb_terms: int = 8, 
-    alpha: float = 0.6
+    query: str,
+    bm25: BM25Okapi,
+    tokenized: List[List[str]],
+    corpus: List[Chunk],
+    fb_docs: int = 5,
+    fb_terms: int = 8,
+    alpha: float = 0.6,
 ) -> str:
     """
     RM3-style query expansion.
-    
+
     Pick top fb_docs by BM25, harvest top fb_terms, append to query.
     This is a simplified bag-of-words approximation.
     """
     q_tokens = tokenize(query)
     scores = bm25.get_scores(q_tokens)
-    top_idxs = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:max(1, fb_docs)]
+    top_idxs = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[: max(1, fb_docs)]
 
     # Collect term frequencies from feedback documents
     tf = Counter()
@@ -35,9 +35,9 @@ def rm3_expand_query(
 
     # Select feedback terms not already in query
     fb = [t for t, _ in tf.most_common(fb_terms) if t not in q_tokens]
-    
+
     if not fb:
         return query
-    
+
     expanded = query + " " + " ".join(fb)
     return expanded

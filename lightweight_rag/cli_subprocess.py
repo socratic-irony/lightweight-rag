@@ -8,14 +8,14 @@ This script provides multiple interfaces:
 3. Batch processing interface
 """
 
-import sys
-import json
 import argparse
 import asyncio
+import json
+import sys
 from pathlib import Path
 
+from . import get_default_config, load_config, merge_configs, query_pdfs
 from .subprocess_interface import main as subprocess_main
-from . import query_pdfs, get_default_config, load_config, merge_configs
 
 
 def create_parser():
@@ -33,28 +33,29 @@ Examples:
 
   # Batch processing
   python -m lightweight_rag.cli_subprocess --batch queries.json --output results.json
-        """
+        """,
     )
-    
+
     # Mode selection
     mode_group = parser.add_mutually_exclusive_group()
-    mode_group.add_argument("--json", action="store_true", 
-                           help="JSON subprocess mode (read from stdin)")
-    mode_group.add_argument("--query", type=str,
-                           help="Direct query mode")
-    mode_group.add_argument("--batch", type=str,
-                           help="Batch processing mode (JSON file with queries)")
-    
+    mode_group.add_argument(
+        "--json", action="store_true", help="JSON subprocess mode (read from stdin)"
+    )
+    mode_group.add_argument("--query", type=str, help="Direct query mode")
+    mode_group.add_argument(
+        "--batch", type=str, help="Batch processing mode (JSON file with queries)"
+    )
+
     # Configuration options
     parser.add_argument("--config", type=str, help="Configuration file path")
     parser.add_argument("--pdf_dir", type=str, help="PDF directory path")
     parser.add_argument("--cache_dir", type=str, help="Cache directory path")
     parser.add_argument("--top_k", type=int, help="Number of top results to return")
-    
+
     # Output options
     parser.add_argument("--output", type=str, help="Output file (for batch mode)")
     parser.add_argument("--pretty", action="store_true", help="Pretty print JSON output")
-    
+
     return parser
 
 
@@ -63,17 +64,17 @@ def direct_query_mode(args):
     if not args.query:
         print("Error: Query is required in direct mode", file=sys.stderr)
         return 1
-    
+
     # Build config
     config = get_default_config()
-    
+
     if args.config:
         try:
             file_config = load_config(args.config)
             config = merge_configs(config, file_config)
         except Exception as e:
             print(f"Warning: Could not load config file: {e}", file=sys.stderr)
-    
+
     # Apply CLI overrides with path normalization
     if args.pdf_dir:
         config["paths"]["pdf_dir"] = str(Path(args.pdf_dir).expanduser().resolve())
@@ -81,42 +82,42 @@ def direct_query_mode(args):
         config["paths"]["cache_dir"] = str(Path(args.cache_dir).expanduser().resolve())
     if args.top_k:
         config["rerank"]["final_top_k"] = args.top_k
-    
+
     # Set quiet mode for subprocess usage
     config["_quiet_mode"] = True
-    
+
     try:
         results = query_pdfs(args.query, config)
-        
+
         response = {
             "success": True,
             "query": args.query,
             "results": results,
             "count": len(results),
-            "error": None
+            "error": None,
         }
-        
+
         if args.pretty:
             print(json.dumps(response, indent=2, ensure_ascii=False))
         else:
             print(json.dumps(response, ensure_ascii=False))
-        
+
         return 0
-        
+
     except Exception as e:
         response = {
             "success": False,
             "query": args.query,
             "results": [],
             "count": 0,
-            "error": str(e)
+            "error": str(e),
         }
-        
+
         if args.pretty:
             print(json.dumps(response, indent=2, ensure_ascii=False))
         else:
             print(json.dumps(response, ensure_ascii=False))
-        
+
         return 1
 
 
@@ -125,31 +126,31 @@ def batch_processing_mode(args):
     if not args.batch:
         print("Error: Batch file is required in batch mode", file=sys.stderr)
         return 1
-    
+
     try:
         # Load batch queries
-        with open(args.batch, 'r') as f:
+        with open(args.batch, "r") as f:
             batch_data = json.load(f)
-        
+
         if not isinstance(batch_data, dict) or "queries" not in batch_data:
             print("Error: Batch file must contain a 'queries' array", file=sys.stderr)
             return 1
-        
+
         queries = batch_data["queries"]
         if not isinstance(queries, list):
             print("Error: 'queries' must be an array", file=sys.stderr)
             return 1
-        
+
         # Build base config
         config = get_default_config()
-        
+
         if args.config:
             try:
                 file_config = load_config(args.config)
                 config = merge_configs(config, file_config)
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}", file=sys.stderr)
-        
+
         # Apply CLI overrides with path normalization
         if args.pdf_dir:
             config["paths"]["pdf_dir"] = str(Path(args.pdf_dir).expanduser().resolve())
@@ -157,7 +158,7 @@ def batch_processing_mode(args):
             config["paths"]["cache_dir"] = str(Path(args.cache_dir).expanduser().resolve())
         if args.top_k:
             config["rerank"]["final_top_k"] = args.top_k
-        
+
         # Process queries
         results = []
         for query in queries:
@@ -168,43 +169,49 @@ def batch_processing_mode(args):
                 query_str = query.get("query", "")
                 query_config = merge_configs(config, query.get("config", {}))
             else:
-                results.append({
-                    "success": False,
-                    "query": str(query),
-                    "results": [],
-                    "count": 0,
-                    "error": "Invalid query format"
-                })
+                results.append(
+                    {
+                        "success": False,
+                        "query": str(query),
+                        "results": [],
+                        "count": 0,
+                        "error": "Invalid query format",
+                    }
+                )
                 continue
-            
+
             try:
                 query_results = query_pdfs(query_str, query_config)
-                results.append({
-                    "success": True,
-                    "query": query_str,
-                    "results": query_results,
-                    "count": len(query_results),
-                    "error": None
-                })
+                results.append(
+                    {
+                        "success": True,
+                        "query": query_str,
+                        "results": query_results,
+                        "count": len(query_results),
+                        "error": None,
+                    }
+                )
             except Exception as e:
-                results.append({
-                    "success": False,
-                    "query": query_str,
-                    "results": [],
-                    "count": 0,
-                    "error": str(e)
-                })
-        
+                results.append(
+                    {
+                        "success": False,
+                        "query": query_str,
+                        "results": [],
+                        "count": 0,
+                        "error": str(e),
+                    }
+                )
+
         # Prepare output
         output_data = {
             "batch_results": results,
             "total_queries": len(queries),
-            "successful_queries": sum(1 for r in results if r["success"])
+            "successful_queries": sum(1 for r in results if r["success"]),
         }
-        
+
         # Output results
         if args.output:
-            with open(args.output, 'w') as f:
+            with open(args.output, "w") as f:
                 if args.pretty:
                     json.dump(output_data, f, indent=2, ensure_ascii=False)
                 else:
@@ -215,9 +222,9 @@ def batch_processing_mode(args):
                 print(json.dumps(output_data, indent=2, ensure_ascii=False))
             else:
                 print(json.dumps(output_data, ensure_ascii=False))
-        
+
         return 0
-        
+
     except Exception as e:
         print(f"Error in batch processing: {e}", file=sys.stderr)
         return 1
@@ -227,11 +234,11 @@ def main():
     """Main entry point."""
     parser = create_parser()
     args = parser.parse_args()
-    
+
     # Default to JSON mode if no specific mode is chosen
     if not args.query and not args.batch:
         args.json = True
-    
+
     if args.json:
         # Use the subprocess interface
         subprocess_main()

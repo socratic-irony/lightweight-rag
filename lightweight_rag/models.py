@@ -1,37 +1,39 @@
 """Data models and utilities for the lightweight RAG system."""
 
 import re
-from typing import Optional, List
 from dataclasses import dataclass
-
+from typing import List, Optional
 
 # -------------------------
 # Data Models
 # -------------------------
 
+
 @dataclass
 class DocMeta:
     """Document metadata from Crossref/OpenAlex/Unpaywall."""
+
     title: Optional[str]
-    authors: List[str]          # ["Surname, Given", ...]
+    authors: List[str]  # ["Surname, Given", ...]
     year: Optional[int]
     doi: Optional[str]
-    source: str                 # file path
+    source: str  # file path
     start_page: Optional[int] = None  # page offset if citation has page range (e.g., 300-314)
-    end_page: Optional[int] = None    # end of page range when available
-    citekey: Optional[str] = None     # Better BibTeX citekey for Pandoc
-    venue: Optional[str] = None       # journal/conference name from OpenAlex
-    publisher: Optional[str] = None   # publisher from OpenAlex
-    concepts: Optional[List[str]] = None        # concept tags from OpenAlex
-    oa_url: Optional[str] = None      # verified open access URL from Unpaywall/OpenAlex
+    end_page: Optional[int] = None  # end of page range when available
+    citekey: Optional[str] = None  # Better BibTeX citekey for Pandoc
+    venue: Optional[str] = None  # journal/conference name from OpenAlex
+    publisher: Optional[str] = None  # publisher from OpenAlex
+    concepts: Optional[List[str]] = None  # concept tags from OpenAlex
+    oa_url: Optional[str] = None  # verified open access URL from Unpaywall/OpenAlex
 
 
 @dataclass
 class Chunk:
     """A text chunk extracted from a PDF page."""
+
     doc_id: int
     source: str
-    page: int                   # 1-based PDF page index
+    page: int  # 1-based PDF page index
     text: str
     meta: DocMeta
 
@@ -43,20 +45,29 @@ class Chunk:
 DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.I)
 
 ANSWER_PATTERNS = [
-    " is a ", " we define ", " we propose ", " we argue ",
-    " consists of ", " stakeholders include ", " method ", " methodology ",
+    " is a ",
+    " we define ",
+    " we propose ",
+    " we argue ",
+    " consists of ",
+    " stakeholders include ",
+    " method ",
+    " methodology ",
 ]
 
-STOP = set("""
+STOP = set(
+    """
 a an and are as at be by for from has have in is it its of on or that the their this to was were with without within into between over under than then thus hence therefore however not nor but if else when where while whom whose which who what why how can may might must shall should will would could do does did done also such many most more some any each per via using used study studies paper papers result results method methods approach approaches technique techniques model models data dataset datasets system systems figure figures table tables appendix references introduction conclusion conclusions
 yes no true false
 design value values vsd privacy security fairness bias harms trust governance regulation policy stakeholders stakeholder users user participants participants actors actor
-""".split())
+""".split()
+)
 
 
 # -------------------------
 # Utilities
 # -------------------------
+
 
 def find_doi_in_text(text: str) -> Optional[str]:
     """Extract DOI from text if present."""
