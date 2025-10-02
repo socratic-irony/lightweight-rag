@@ -2,8 +2,8 @@
 
 import math
 import re
-from typing import List, Optional, Dict
-from collections import Counter, defaultdict
+from collections import defaultdict
+from typing import Dict, List, Optional
 
 # Optional imports for semantic reranking
 try:
@@ -26,7 +26,9 @@ def tokenize_for_rerank(text: str) -> List[str]:
     return tokens
 
 
-def idf_weight(query_terms: List[str], df: Dict[str, int], N: int, floor: float = 1.5) -> Dict[str, float]:
+def idf_weight(
+    query_terms: List[str], df: Dict[str, int], N: int, floor: float = 1.5
+) -> Dict[str, float]:
     """Calculate IDF weights for query terms."""
     weights = {}
     for term in query_terms:
@@ -48,22 +50,22 @@ def proximity_score(query_terms: List[str], doc_terms: List[str], window: int = 
     positions = defaultdict(list)
     for i, term in enumerate(doc_terms):
         positions[term].append(i)
-    
+
     hits = [term for term in query_terms if positions.get(term)]
     if len(hits) < 2:
         return 0.0
-    
+
     # Compute minimal span covering any two distinct hit terms
     best_span = None
     for i, t1 in enumerate(hits):
-        for t2 in hits[i+1:]:
+        for t2 in hits[i + 1 :]:
             for p1 in positions[t1]:
                 # Find closest p2 to p1
                 p2 = min(positions[t2], key=lambda x: abs(x - p1))
                 span = abs(p2 - p1) + 1
                 if best_span is None or span < best_span:
                     best_span = span
-    
+
     if best_span is None:
         return 0.0
     return max(0.0, (window - best_span) / window)
@@ -73,76 +75,77 @@ def phrase_boost(query: str, doc_text: str) -> float:
     """Score boost for phrase matches in document."""
     q_tokens = tokenize_for_rerank(query)
     d_tokens = tokenize_for_rerank(doc_text)
-    
-    q = " ".join(q_tokens)
+
     d = " ".join(d_tokens)
-    
+
     # Check for bigrams
-    bigrams = [" ".join(q_tokens[i:i+2]) for i in range(len(q_tokens)-1)]
+    bigrams = [" ".join(q_tokens[i : i + 2]) for i in range(len(q_tokens) - 1)]
     hits = sum(1 for bg in bigrams if bg in d)
-    
+
     return min(1.0, 0.15 * hits)  # Up to +0.15
 
 
 def heuristic_rerank(
-    query: str, 
-    candidates: List[Dict], 
-    df: Optional[Dict[str, int]] = None, 
+    query: str,
+    candidates: List[Dict],
+    df: Optional[Dict[str, int]] = None,
     N: int = 100000,
-    alpha: float = 0.6, 
-    beta: float = 0.3, 
-    gamma: float = 0.1
+    alpha: float = 0.6,
+    beta: float = 0.3,
+    gamma: float = 0.1,
 ) -> List[Dict]:
     """
     Heuristic reranking based on coverage, proximity, and phrase matching.
-    
+
     Args:
         query: Query string
         candidates: List of dicts with keys: {'text': str, 'bm25': float, 'rank': int}
         df: Dict term -> doc freq (optional; uses defaults if None)
         N: Corpus size for IDF calculation
         alpha: Weight for coverage score
-        beta: Weight for proximity score  
+        beta: Weight for proximity score
         gamma: Weight for phrase boost
-        
+
     Returns:
         Candidates list with 'rerank_score' added and sorted by that score
     """
     q_terms = tokenize_for_rerank(query)
     if not q_terms:
         return candidates
-    
+
     idf = idf_weight(q_terms, df or {}, N)
-    
+
     for candidate in candidates:
-        d_terms = tokenize_for_rerank(candidate['text'])
+        d_terms = tokenize_for_rerank(candidate["text"])
         cov = coverage_score(q_terms, d_terms, idf)
         prox = proximity_score(q_terms, d_terms, window=24)
-        phrase = phrase_boost(query, candidate['text'])
-        
-        candidate['rerank_score'] = alpha * cov + beta * prox + gamma * phrase
-    
-    return sorted(candidates, key=lambda x: x['rerank_score'], reverse=True)
+        phrase = phrase_boost(query, candidate["text"])
+
+        candidate["rerank_score"] = alpha * cov + beta * prox + gamma * phrase
+
+    return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
 
-def embed_texts(texts: List[str], model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> Optional["np.ndarray"]:
+def embed_texts(
+    texts: List[str], model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+) -> Optional["np.ndarray"]:
     """
     Return normalized embeddings or None if sentence-transformers not installed.
-    
+
     Lazy loads the model to keep cold-start times low.
     """
     global _model
-    
+
     if SentenceTransformer is None or np is None:
         return None
-    
+
     if _model is None:
         try:
-            _model = SentenceTransformer(model_name, device='cpu')
+            _model = SentenceTransformer(model_name, device="cpu")
         except Exception as e:
             print(f"Failed to load sentence transformer model: {e}")
             return None
-    
+
     try:
         embeddings = _model.encode(texts, convert_to_numpy=True)
         # Normalize for cosine similarity
@@ -154,38 +157,38 @@ def embed_texts(texts: List[str], model_name: str = "sentence-transformers/all-M
 
 
 def semantic_rerank(
-    query: str, 
-    texts: List[str], 
-    scores: List[float], 
-    model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    query: str,
+    texts: List[str],
+    scores: List[float],
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
 ) -> List[float]:
     """
     Rerank using semantic similarity.
-    
+
     Returns updated scores that combine BM25 + semantic similarity.
     If semantic reranking fails, returns original scores.
     """
     if not texts or SentenceTransformer is None:
         return scores
-    
+
     # Encode query and texts
     all_texts = [query] + texts
     embeddings = embed_texts(all_texts, model_name)
-    
+
     if embeddings is None:
         return scores
-    
+
     # Calculate cosine similarities (already normalized)
     query_emb = embeddings[0:1]  # Shape (1, dim)
-    text_embs = embeddings[1:]   # Shape (n, dim)
-    
+    text_embs = embeddings[1:]  # Shape (n, dim)
+
     similarities = np.dot(text_embs, query_emb.T).flatten()  # Shape (n,)
-    
+
     # Combine BM25 and semantic scores
     # Simple linear combination - can be tuned
     alpha = 0.7  # Weight for BM25 score
-    beta = 0.3   # Weight for semantic similarity
-    
+    beta = 0.3  # Weight for semantic similarity
+
     # Normalize BM25 scores to 0-1 range for combining
     if len(scores) > 1:
         min_score = min(scores)
@@ -196,11 +199,8 @@ def semantic_rerank(
             norm_scores = [1.0] * len(scores)
     else:
         norm_scores = [1.0] * len(scores)
-    
+
     # Combine scores
-    combined_scores = [
-        alpha * norm_scores[i] + beta * similarities[i]
-        for i in range(len(scores))
-    ]
-    
+    combined_scores = [alpha * norm_scores[i] + beta * similarities[i] for i in range(len(scores))]
+
     return combined_scores
