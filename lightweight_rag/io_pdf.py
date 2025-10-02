@@ -207,8 +207,19 @@ def create_sliding_windows(text: str, window_chars: int = 300, overlap_chars: in
                     overlap_length += token_length
                     overlap_words.insert(0, token)
                     j -= 1
-                current_words = overlap_words
-                current_length = sum(len(tok) for tok in current_words) + max(len(current_words) - 1, 0)
+                
+                # Check if next word would fit with overlap words
+                # If not (e.g., word is too long), skip overlap to avoid infinite loop
+                overlap_total_length = sum(len(tok) for tok in overlap_words) + max(len(overlap_words) - 1, 0)
+                next_word_length = word_length if not overlap_words else word_length + 1
+                
+                if overlap_total_length + next_word_length > window_chars and overlap_words:
+                    # Word won't fit even after overlap, reset completely
+                    current_words = []
+                    current_length = 0
+                else:
+                    current_words = overlap_words
+                    current_length = sum(len(tok) for tok in current_words) + max(len(current_words) - 1, 0)
             else:
                 current_words = []
                 current_length = 0
