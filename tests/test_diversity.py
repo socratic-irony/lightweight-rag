@@ -12,7 +12,8 @@ from lightweight_rag.diversity import (
     simple_tfidf_vectors,
     cosine_similarity_sparse,
     mmr_selection,
-    format_results
+    format_results,
+    apply_diversity_selection
 )
 from lightweight_rag.models import Chunk, DocMeta
 
@@ -344,3 +345,113 @@ class TestTFIDFEdgeCases:
             common = set(doc_vec.keys()) & set(query_vector.keys())
             # Might have some overlap or not depending on tokenization
             assert isinstance(common, set)
+
+
+class TestApplyDiversitySelection:
+    """Test apply_diversity_selection function."""
+    
+    def test_diversity_selection_basic(self):
+        """Test basic diversity selection."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        corpus = [
+            Chunk(doc_id=0, source="test.pdf", page=1, text="Content 1", meta=meta),
+            Chunk(doc_id=0, source="test.pdf", page=2, text="Content 2", meta=meta),
+            Chunk(doc_id=1, source="test2.pdf", page=1, text="Content 3", meta=meta),
+        ]
+        
+        results = [(0, 0.9), (1, 0.85), (2, 0.8)]
+        
+        diverse = apply_diversity_selection(results, corpus, div_lambda=0.3, max_per_doc=2)
+        
+        assert isinstance(diverse, list)
+        assert len(diverse) <= 3
+    
+    def test_diversity_selection_empty_results(self):
+        """Test diversity selection with empty results."""
+        corpus = []
+        results = []
+        
+        diverse = apply_diversity_selection(results, corpus)
+        
+        assert diverse == []
+    
+    def test_diversity_selection_max_per_doc_limit(self):
+        """Test that max_per_doc limit is enforced."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        corpus = [
+            Chunk(doc_id=0, source="test.pdf", page=1, text="Content 1", meta=meta),
+            Chunk(doc_id=0, source="test.pdf", page=2, text="Content 2", meta=meta),
+            Chunk(doc_id=0, source="test.pdf", page=3, text="Content 3", meta=meta),
+        ]
+        
+        results = [(0, 0.9), (1, 0.85), (2, 0.8)]
+        
+        # Limit to 1 per document
+        diverse = apply_diversity_selection(results, corpus, div_lambda=0.3, max_per_doc=1)
+        
+        # Should only get 1 result since all are from same doc
+        assert len(diverse) == 1
+    
+    def test_diversity_selection_out_of_bounds(self):
+        """Test handling of out-of-bounds chunk indices."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        corpus = [
+            Chunk(doc_id=0, source="test.pdf", page=1, text="Content 1", meta=meta),
+        ]
+        
+        # Include an out-of-bounds index
+        results = [(0, 0.9), (999, 0.8)]
+        
+        with patch('builtins.print') as mock_print:
+            diverse = apply_diversity_selection(results, corpus, div_lambda=0.3, max_per_doc=2)
+            
+            # Should only include valid index
+            assert len(diverse) == 1
+            assert diverse[0][0] == 0
+            # Should have printed warning
+            mock_print.assert_called()
+    
+    def test_diversity_selection_penalty_applied(self):
+        """Test that diversity penalty is correctly applied."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        corpus = [
+            Chunk(doc_id=0, source="test.pdf", page=1, text="Content 1", meta=meta),
+            Chunk(doc_id=0, source="test.pdf", page=2, text="Content 2", meta=meta),
+        ]
+        
+        results = [(0, 1.0), (1, 0.95)]
+        
+        diverse = apply_diversity_selection(results, corpus, div_lambda=0.5, max_per_doc=2)
+        
+        # Second result from same doc should have penalty applied
+        assert len(diverse) == 2
+        # Second result should have lower score due to penalty
+        assert diverse[0][1] >= diverse[1][1]

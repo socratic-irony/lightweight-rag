@@ -321,3 +321,81 @@ class TestPDFExtraction:
             assert len(pages) == 1
             # Should have attempted alternative extraction
             assert mock_page.get_textpage.called or mock_page.get_text.called
+
+
+class TestChunkingConfigurations:
+    """Test different chunking method configurations."""
+    
+    def test_chunk_page_split_method(self):
+        """Test page split chunking method."""
+        text = "This is a document with multiple paragraphs. " * 10
+        config = {"page_split": "page"}
+        chunks = chunk_text(text, doc_title="Test Doc", chunking_config=config)
+        
+        assert len(chunks) == 1
+        assert "Test Doc" in chunks[0]
+    
+    def test_chunk_sentence_split_method(self):
+        """Test sentence split chunking method."""
+        text = "First sentence here. Second sentence here. Third sentence here."
+        config = {"page_split": "sentence"}
+        chunks = chunk_text(text, doc_title="Test Doc", chunking_config=config)
+        
+        assert len(chunks) >= 3
+        # All chunks should have the title
+        assert all("Test Doc" in chunk for chunk in chunks)
+    
+    def test_chunk_sliding_split_method(self):
+        """Test sliding window split method."""
+        text = " ".join([f"word{i}" for i in range(100)])
+        config = {"page_split": "sliding", "window_chars": 100, "overlap_chars": 20}
+        chunks = chunk_text(text, doc_title="Test Doc", chunking_config=config)
+        
+        assert len(chunks) >= 1
+        # All chunks should have the title
+        assert all("Test Doc" in chunk for chunk in chunks)
+    
+    def test_chunk_no_title(self):
+        """Test chunking without title."""
+        text = "Content without title"
+        config = {"page_split": "page"}
+        chunks = chunk_text(text, doc_title="", chunking_config=config)
+        
+        assert len(chunks) == 1
+        assert chunks[0] == text
+    
+    def test_chunk_default_behavior(self):
+        """Test default chunking behavior when no config provided."""
+        text = "Default behavior test"
+        chunks = chunk_text(text, doc_title="", chunking_config=None)
+        
+        assert len(chunks) == 1
+        assert text in chunks[0]
+
+
+class TestPrintIfNotQuiet:
+    """Test quiet mode printing."""
+    
+    def test_print_default(self):
+        """Test that print works by default."""
+        from lightweight_rag.io_pdf import _print_if_not_quiet
+        
+        with patch('builtins.print') as mock_print:
+            _print_if_not_quiet("Test message")
+            mock_print.assert_called()
+    
+    def test_print_quiet_enabled(self):
+        """Test that print is suppressed in quiet mode."""
+        from lightweight_rag.io_pdf import _print_if_not_quiet
+        
+        with patch('builtins.print') as mock_print:
+            _print_if_not_quiet("Test message", {"_quiet_mode": True})
+            mock_print.assert_not_called()
+    
+    def test_print_quiet_disabled(self):
+        """Test that print works when quiet mode disabled."""
+        from lightweight_rag.io_pdf import _print_if_not_quiet
+        
+        with patch('builtins.print') as mock_print:
+            _print_if_not_quiet("Test message", {"_quiet_mode": False})
+            mock_print.assert_called()

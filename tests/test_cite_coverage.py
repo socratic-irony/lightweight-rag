@@ -15,7 +15,10 @@ from lightweight_rag.cite import (
     openalex_meta_for_doi,
     batch_crossref_lookup,
     batch_enriched_lookup,
-    _print_quiet
+    _print_quiet,
+    unpaywall_meta_for_doi,
+    author_date_citation,
+    pandoc_citation
 )
 from lightweight_rag.models import DocMeta
 
@@ -316,3 +319,152 @@ class TestQuietMode:
         with patch('builtins.print') as mock_print:
             _print_quiet("Test message", config={"_quiet_mode": False})
             mock_print.assert_called_once_with("Test message")
+
+
+class TestUnpaywallAPI:
+    """Test Unpaywall API integration."""
+    
+    @pytest.mark.asyncio
+    async def test_unpaywall_success(self):
+        """Test successful Unpaywall API response."""
+        mock_client = MagicMock(spec=httpx.AsyncClient)
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "oa_status": "gold",
+            "best_oa_location": {
+                "url_for_pdf": "https://example.com/paper.pdf"
+            }
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        
+        result = await unpaywall_meta_for_doi(mock_client, "10.1234/test", "test@example.com")
+        
+        assert result is not None
+        assert isinstance(result, dict)
+    
+    @pytest.mark.asyncio
+    async def test_unpaywall_timeout(self):
+        """Test Unpaywall timeout handling."""
+        mock_client = MagicMock(spec=httpx.AsyncClient)
+        mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+        
+        result = await unpaywall_meta_for_doi(mock_client, "10.1234/test", "test@example.com")
+        
+        assert result is None
+
+
+class TestCitationFormatting:
+    """Test citation string formatting."""
+    
+    def test_author_date_citation_single_author(self):
+        """Test author-date citation with single author."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        citation = author_date_citation(meta, page=5)
+        
+        assert "Smith" in citation
+        assert "2023" in citation
+        assert "5" in citation or "p." in citation
+    
+    def test_author_date_citation_multiple_authors(self):
+        """Test author-date citation with multiple authors."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John", "Doe, Jane", "Johnson, Bob"],
+            year=2023,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        citation = author_date_citation(meta, page=10)
+        
+        assert "Smith" in citation
+        assert "et al." in citation
+        assert "2023" in citation
+    
+    def test_author_date_citation_no_year(self):
+        """Test author-date citation without year."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=None,
+            doi=None,
+            source="test.pdf"
+        )
+        
+        citation = author_date_citation(meta, page=5)
+        
+        assert "Smith" in citation
+        assert "n.d." in citation
+    
+    def test_author_date_citation_with_start_page(self):
+        """Test author-date citation with start_page offset."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf",
+            start_page=100
+        )
+        
+        citation = author_date_citation(meta, page=5)
+        
+        # Should use actual page (100 + 5 - 1 = 104)
+        assert "104" in citation
+    
+    def test_pandoc_citation_with_citekey(self):
+        """Test Pandoc citation with citekey."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf",
+            citekey="smith2023test"
+        )
+        
+        citation = pandoc_citation(meta, page=5)
+        
+        assert citation is not None
+        assert "smith2023test" in citation
+        assert "@" in citation
+    
+    def test_pandoc_citation_no_citekey(self):
+        """Test Pandoc citation without citekey."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf",
+            citekey=None
+        )
+        
+        citation = pandoc_citation(meta, page=5)
+        
+        assert citation is None
+    
+    def test_pandoc_citation_with_start_page(self):
+        """Test Pandoc citation with start_page offset."""
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi=None,
+            source="test.pdf",
+            citekey="smith2023test",
+            start_page=100
+        )
+        
+        citation = pandoc_citation(meta, page=5)
+        
+        # Should use actual page (100 + 5 - 1 = 104)
+        assert "104" in citation

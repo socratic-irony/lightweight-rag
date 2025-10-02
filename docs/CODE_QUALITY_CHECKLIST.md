@@ -36,36 +36,36 @@ Break down into smaller functions:
 ### 2. Improve Test Coverage (66% → 80%+)
 **Priority:** HIGH
 
-#### io_pdf.py Coverage (56% → 80%)
-- [ ] Test malformed PDF handling
-- [ ] Test various text encoding scenarios
-- [ ] Test different chunking configurations
+#### io_pdf.py Coverage (56% → 64%)
+- [x] Test malformed PDF handling
+- [x] Test various text encoding scenarios
+- [x] Test different chunking configurations
 - [ ] Test cache invalidation
-- [ ] Test text quality edge cases
-- [ ] Test sliding window boundaries
+- [x] Test text quality edge cases
+- [x] Test sliding window boundaries
 - [ ] Test concurrent PDF processing
 
-#### cite.py Coverage (56% → 80%)
-- [ ] Test Crossref API timeout handling
-- [ ] Test OpenAlex API error responses
-- [ ] Test invalid DOI formats
-- [ ] Test batch processing edge cases
-- [ ] Test cache expiration logic
-- [ ] Test metadata enrichment failures
+#### cite.py Coverage (56% → 77%)
+- [x] Test Crossref API timeout handling
+- [x] Test OpenAlex API error responses
+- [x] Test invalid DOI formats
+- [x] Test batch processing edge cases
+- [x] Test cache expiration logic
+- [x] Test metadata enrichment failures
 
-#### diversity.py Coverage (50% → 80%)
-- [ ] Test MMR selection with various thresholds
-- [ ] Test with empty result sets
-- [ ] Test with single result
-- [ ] Test cosine similarity edge cases
-- [ ] Test TF-IDF vector calculation
-- [ ] Test format_results variations
+#### diversity.py Coverage (50% → 79%)
+- [x] Test MMR selection with various thresholds
+- [x] Test with empty result sets
+- [x] Test with single result
+- [x] Test cosine similarity edge cases
+- [x] Test TF-IDF vector calculation
+- [x] Test format_results variations
 
-#### environment.py Coverage (51% → 80%)
-- [ ] Test environment detection in different contexts
-- [ ] Test path resolution scenarios
-- [ ] Test config adaptation logic
-- [ ] Test subprocess detection
+#### environment.py Coverage (51% → 100%)
+- [x] Test environment detection in different contexts
+- [x] Test path resolution scenarios
+- [x] Test config adaptation logic
+- [x] Test subprocess detection
 
 ## High Priority Improvements
 
