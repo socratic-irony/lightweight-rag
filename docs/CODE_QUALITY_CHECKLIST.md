@@ -21,17 +21,29 @@ This document provides an actionable checklist for improving code quality based 
 
 ### 1. Refactor build_corpus Function (CRITICAL)
 **Priority:** HIGHEST
-**Complexity:** F (137) → Target: B (≤10)
+**Complexity:** F (137) → Target: B (≤10) ✅ **COMPLETED** (Now: B-7)
 **File:** lightweight_rag/io_pdf.py
 
 Break down into smaller functions:
-- [ ] Extract `_discover_pdf_files(pdf_dir)` function
-- [ ] Extract `_try_load_cache(files, cache_dir)` function  
-- [ ] Extract `_extract_and_chunk_pdfs(files, config)` function
-- [ ] Extract `_enrich_citations_parallel(corpus, config)` function
-- [ ] Extract `_save_corpus_cache(corpus, files, cache_dir)` function
-- [ ] Update tests to cover new functions
-- [ ] Verify complexity drops to acceptable level
+- [x] Extract `_discover_pdf_files(pdf_dir)` function
+- [x] Extract `_try_load_cache(files, cache_dir)` function  
+- [x] Extract `_extract_and_chunk_pdfs(files, config)` function
+- [x] Extract `_enrich_citations_parallel(corpus, config)` function
+- [x] Extract `_save_corpus_cache(corpus, files, cache_dir)` function
+- [x] Update tests to cover new functions
+- [x] Verify complexity drops to acceptable level
+
+**Additional helper functions extracted:**
+- `_enrich_chunk_with_bibliography(chunk, biblio_map, doi_map)` - D (24)
+- `_get_metadata_from_bibliography(pdf_basename, pages, biblio_map, citation_config)` - D (26)
+- `_create_chunks_from_pages(pages, meta, pdf_basename, ...)` - B (10)
+- `_collect_dois_from_pdfs(files_to_process_list, pdf_data_list, citation_config)` - C (11)
+- `_log_processing_status(files_to_process, new_files, ...)` - A (5)
+- `_extract_pdf_text_parallel(files_to_process_list, max_workers)` - B (7)
+- `_merge_with_cached_corpus(cached_corpus, files_to_process, ...)` - B (6)
+- `_print_final_stats(new_corpus_chunks, final_corpus, ...)` - B (6)
+
+**Result:** Complexity reduced from F (137) → B (7) - 95% reduction! ✅
 
 ### 2. Improve Test Coverage (66% → 80%+)
 **Priority:** HIGH

@@ -355,45 +355,106 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
     return pages
 
 
-async def build_corpus(
-    pdf_dir: Path,
-    max_workers: Optional[int] = None,
-    cache_seconds: int = 604800,
-    max_concurrent_api: int = 5,
-    citation_config: Optional[dict] = None,
-    chunking_config: Optional[dict] = None,
-) -> List[Chunk]:
-    """Build corpus by extracting text from all PDFs in directory."""
-    import httpx
-
-    from .index import (
-        CACHE_DIR,
-        detect_changed_files,
-        filter_corpus_by_files,
-        load_corpus_from_cache,
-        load_manifest,
-        manifest_for_dir_with_text_hash,
-        save_corpus_to_cache,
-        save_manifest,
-    )
-    from .performance import get_optimal_worker_count, process_with_thread_pool
-
+def _discover_pdf_files(pdf_dir: Path) -> List[Path]:
+    """Discover all PDF files in directory.
+    
+    Args:
+        pdf_dir: Directory containing PDF files
+        
+    Returns:
+        List of Path objects for PDF files
+    """
     pdf_files = list(pdf_dir.glob("*.pdf"))
     if not pdf_files:
         print(f"No PDFs found in {pdf_dir}")
-        return []
+    return pdf_files
 
-    # Check cache and detect changes for incremental processing
-    cached_corpus = load_corpus_from_cache()
-    cached_manifest = load_manifest()
 
-    # Detect which files have changed
-    new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
+def _enrich_chunk_with_bibliography(chunk: Chunk, biblio_map: dict, doi_map: dict) -> tuple[Chunk, bool]:
+    """Enrich a single chunk with bibliography metadata.
+    
+    Args:
+        chunk: Chunk to enrich
+        biblio_map: Bibliography index by filename
+        doi_map: Bibliography index by DOI
+        
+    Returns:
+        Tuple of (enriched_chunk, was_enriched)
+    """
+    meta = chunk.meta
+    enriched = False
+    
+    key = os.path.basename(meta.source).lower()
+    entry = biblio_map.get(key)
+    if not entry and meta.doi:
+        entry = doi_map.get((meta.doi or "").lower())
+    
+    if entry:
+        authors_fmt = []
+        for a in entry.authors or []:
+            fam = (a.get("family") or "").strip()
+            giv = (a.get("given") or "").strip()
+            if fam and giv:
+                authors_fmt.append(f"{fam}, {giv}")
+            elif fam:
+                authors_fmt.append(fam)
+        
+        if not meta.title:
+            meta.title = entry.title
+        if not meta.authors:
+            meta.authors = authors_fmt
+        if not meta.year and hasattr(entry, "year"):
+            meta.year = entry.year
+        if not meta.doi and entry.doi:
+            meta.doi = entry.doi
+        if meta.start_page is None and entry.start_page is not None:
+            meta.start_page = entry.start_page
+        if meta.end_page is None and entry.end_page is not None:
+            meta.end_page = entry.end_page
+        if not meta.citekey and entry.citekey:
+            meta.citekey = entry.citekey
+        enriched = True
+    
+    return chunk, enriched
+
+
+def _try_load_cache(
+    pdf_files: List[Path],
+    pdf_dir: Path,
+    citation_config: Optional[dict],
+    new_files: List[Path],
+    changed_files: List[Path],
+    removed_files: List[Path],
+    cached_corpus: Optional[List[Chunk]],
+) -> Optional[List[Chunk]]:
+    """Try to load and enrich cached corpus if no files need processing.
+    
+    Args:
+        pdf_files: All PDF files in directory
+        pdf_dir: Directory containing PDFs
+        citation_config: Configuration for citation enrichment
+        new_files: List of new files detected
+        changed_files: List of changed files detected
+        removed_files: List of removed files detected
+        cached_corpus: Previously cached corpus
+        
+    Returns:
+        Enriched corpus if cache is valid, None if reprocessing needed
+    """
+    from .index import (
+        filter_corpus_by_files,
+        manifest_for_dir_with_text_hash,
+        save_corpus_to_cache,
+        save_manifest,
+        CACHE_DIR,
+    )
+    
     files_to_process = new_files + changed_files
-
+    
     # If no files need processing, enrich cached corpus with bibliography (and filter) and return
     if not files_to_process and cached_corpus:
         print(f"Loaded {len(cached_corpus)} chunks from cache (no changes detected)")
+        
         # Load bibliography maps if configured
         biblio_map = {}
         doi_map = {}
@@ -405,64 +466,38 @@ async def build_corpus(
                 try:
                     biblio_map = load_biblio_index(idx_path)
                     from .io_biblio import load_biblio_index_by_doi as _load_doi
-
                     doi_map = _load_doi(idx_path)
                 except Exception:
                     biblio_map = {}
                     doi_map = {}
             prefer_biblio = citation_config.get("prefer_bibliography", True)
             drop_unknown = citation_config.get("drop_unknown", False)
-        # Track per-document (PDF) enrichment and drops to avoid inflating counts by chunk volume
+        
+        # Track per-document enrichment and drops
         matched_docs = set()
         dropped_docs = set()
-        matched_via_index = 0
+        
         # Enrich cached corpus
         updated_corpus: List[Chunk] = []
         for chunk in cached_corpus:
-            meta = chunk.meta
-            enriched = False
             if prefer_biblio and biblio_map:
-                key = os.path.basename(meta.source).lower()
-                entry = biblio_map.get(key)
-                if not entry and meta.doi:
-                    entry = doi_map.get((meta.doi or "").lower())
-                if entry:
-                    authors_fmt = []
-                    for a in entry.authors or []:
-                        fam = (a.get("family") or "").strip()
-                        giv = (a.get("given") or "").strip()
-                        if fam and giv:
-                            authors_fmt.append(f"{fam}, {giv}")
-                        elif fam:
-                            authors_fmt.append(fam)
-                    if not meta.title:
-                        meta.title = entry.title
-                    if not meta.authors:
-                        meta.authors = authors_fmt
-                    if not meta.year and hasattr(entry, "year"):
-                        meta.year = entry.year
-                    if not meta.doi and entry.doi:
-                        meta.doi = entry.doi
-                    if meta.start_page is None and entry.start_page is not None:
-                        meta.start_page = entry.start_page
-                    if meta.end_page is None and entry.end_page is not None:
-                        meta.end_page = entry.end_page
-                    if not meta.citekey and entry.citekey:
-                        meta.citekey = entry.citekey
-                    enriched = True
-            if drop_unknown and (not meta.authors or meta.year is None):
-                # mark doc as dropped (per source) and skip chunk
+                chunk, enriched = _enrich_chunk_with_bibliography(chunk, biblio_map, doi_map)
+                if enriched:
+                    try:
+                        matched_docs.add(os.path.basename(str(chunk.meta.source)).lower())
+                    except Exception:
+                        pass
+            
+            # Drop if missing required metadata
+            if drop_unknown and (not chunk.meta.authors or chunk.meta.year is None):
                 try:
-                    dropped_docs.add(os.path.basename(str(meta.source)).lower())
+                    dropped_docs.add(os.path.basename(str(chunk.meta.source)).lower())
                 except Exception:
                     pass
                 continue
-            if enriched:
-                try:
-                    matched_docs.add(os.path.basename(str(meta.source)).lower())
-                except Exception:
-                    pass
+            
             updated_corpus.append(chunk)
+        
         # Filter out removed files if any
         if removed_files:
             keep_files = [f for f in pdf_files if f not in removed_files]
@@ -470,17 +505,17 @@ async def build_corpus(
             print(
                 f"Removed {len(removed_files)} files from cache, {len(updated_corpus)} chunks remaining"
             )
+        
         # Persist cache and manifest, write diagnostics
         save_corpus_to_cache(updated_corpus)
         current_manifest = manifest_for_dir_with_text_hash(pdf_dir, updated_corpus)
         save_manifest(current_manifest)
+        
         diagnostics = {
             "total_pdfs": len(pdf_files),
             "processed_pdfs": 0,
-            # count unique documents enriched via bibliography index
             "matched_via_index": len(matched_docs) if biblio_map else 0,
             "matched_via_doi": 0,
-            # count unique documents dropped due to missing author/year
             "dropped_unknown": len(dropped_docs) if drop_unknown else 0,
             "new_files": len(new_files),
             "changed_files": len(changed_files),
@@ -489,57 +524,237 @@ async def build_corpus(
         }
         try:
             import json
-
             from .index import CACHE_DIR as _C
-
             diag_path = _C / "warmup_diagnostics.json"
             diag_path.parent.mkdir(parents=True, exist_ok=True)
             with open(diag_path, "w", encoding="utf-8") as f:
                 json.dump(diagnostics, f)
         except Exception as e:
             print(f"Failed to write diagnostics: {e}")
+        
         return updated_corpus
+    
+    return None
 
-    # Log what we're processing
-    if files_to_process:
-        print(
-            f"Processing {len(files_to_process)} changed/new PDFs (out of {len(pdf_files)} total)..."
+
+async def _enrich_citations_parallel(
+    dois_to_fetch: List[str],
+    citation_config: Optional[dict],
+    cache_seconds: int,
+    max_concurrent_api: int,
+) -> Dict[str, DocMeta]:
+    """Batch fetch and enrich metadata for DOIs in parallel.
+    
+    Args:
+        dois_to_fetch: List of DOIs to fetch metadata for
+        citation_config: Configuration for citation sources
+        cache_seconds: Cache duration in seconds
+        max_concurrent_api: Maximum concurrent API requests
+        
+    Returns:
+        Dictionary mapping DOI to enriched metadata
+    """
+    import httpx
+    from .cite import batch_enriched_lookup
+    
+    doi_meta_map = {}
+    if not dois_to_fetch:
+        return doi_meta_map
+    
+    print(f"Fetching metadata for {len(dois_to_fetch)} DOIs...")
+
+    # Use configuration or defaults
+    if citation_config is None:
+        citation_config = {
+            "crossref": True,
+            "openalex": True,
+            "unpaywall": False,
+            "unpaywall_email": None,
+        }
+
+    async with httpx.AsyncClient() as client:
+        enriched_results = await batch_enriched_lookup(
+            client,
+            dois_to_fetch,
+            cache_seconds,
+            max_concurrent_api,
+            use_crossref=citation_config.get("crossref", True),
+            use_openalex=citation_config.get("openalex", True),
+            use_unpaywall=citation_config.get("unpaywall", False),
+            unpaywall_email=citation_config.get("unpaywall_email", "REDACTED"),
         )
-        if new_files:
-            print(f"  - {len(new_files)} new files")
-        if changed_files:
-            print(f"  - {len(changed_files)} changed files")
-        if removed_files:
-            print(f"  - {len(removed_files)} removed files")
-    else:
-        print(f"Processing {len(pdf_files)} PDFs (initial build)...")
 
-    # Only process files that need processing, not all files
-    files_to_process_list = list(files_to_process) if files_to_process else pdf_files
+        for doi, enriched_meta in zip(dois_to_fetch, enriched_results):
+            if enriched_meta:
+                doi_meta_map[doi] = enriched_meta
+    
+    return doi_meta_map
 
-    # Extract text from PDFs that need processing (potentially in parallel)
-    if max_workers is None:
-        max_workers = get_optimal_worker_count()
 
-    if files_to_process_list:
-        if max_workers > 1 and len(files_to_process_list) > 1:
-            print(f"Using {max_workers} workers for PDF processing")
-            pdf_data_list = process_with_thread_pool(
-                extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers
+def _get_metadata_from_bibliography(
+    pdf_basename: str,
+    pages: List[Dict[str, Any]],
+    biblio_map: dict,
+    citation_config: Optional[dict],
+) -> tuple[DocMeta, int]:
+    """Get metadata from bibliography index or extract DOI.
+    
+    Args:
+        pdf_basename: PDF filename
+        pages: Extracted page data
+        biblio_map: Bibliography index
+        citation_config: Citation configuration
+        
+    Returns:
+        Tuple of (DocMeta, matched_via_index_count)
+    """
+    pdf_key = pdf_basename.lower()
+    prefer_biblio = citation_config.get("prefer_bibliography", True) if citation_config else True
+    
+    # Check bibliography by filename
+    biblio = biblio_map.get(pdf_key)
+    if biblio and prefer_biblio:
+        authors_fmt = []
+        for a in biblio.authors or []:
+            fam = (a.get("family") or "").strip()
+            giv = (a.get("given") or "").strip()
+            if fam and giv:
+                authors_fmt.append(f"{fam}, {giv}")
+            elif fam:
+                authors_fmt.append(fam)
+        return DocMeta(
+            title=biblio.title,
+            authors=authors_fmt,
+            year=biblio.year,
+            doi=biblio.doi,
+            source=pdf_basename,
+            start_page=biblio.start_page,
+            end_page=biblio.end_page,
+            citekey=biblio.citekey,
+        ), 1
+    
+    # Look for DOI in first 2 pages
+    first_pages_text = " ".join([p["text"] for p in pages[:2]])
+    doi = find_doi_in_text(first_pages_text)
+    
+    # Try DOI lookup in bibliography
+    if prefer_biblio and (not biblio) and doi and citation_config:
+        from .io_biblio import load_biblio_index_by_doi as _load_doi
+        doi_map = _load_doi(citation_config.get("bibliography_index_path")) if citation_config else {}
+        by_doi = doi_map.get(doi.lower()) if doi else None
+        if by_doi:
+            authors_fmt = []
+            for a in by_doi.authors or []:
+                fam = (a.get("family") or "").strip()
+                giv = (a.get("given") or "").strip()
+                if fam and giv:
+                    authors_fmt.append(f"{fam}, {giv}")
+                elif fam:
+                    authors_fmt.append(fam)
+            return DocMeta(
+                title=by_doi.title,
+                authors=authors_fmt,
+                year=by_doi.year,
+                doi=doi,
+                source=pdf_basename,
+                start_page=by_doi.start_page,
+                end_page=by_doi.end_page,
+                citekey=by_doi.citekey,
+            ), 1
+    
+    return DocMeta(title=None, authors=[], year=None, doi=doi, source=pdf_basename), 0
+
+
+def _create_chunks_from_pages(
+    pages: List[Dict[str, Any]],
+    meta: DocMeta,
+    pdf_basename: str,
+    doc_id: int,
+    doc_title: str,
+    chunking_config: Optional[dict],
+    drop_unknown: bool,
+) -> tuple[List[Chunk], bool]:
+    """Create chunks from PDF pages.
+    
+    Args:
+        pages: Extracted page data
+        meta: Document metadata
+        pdf_basename: PDF filename
+        doc_id: Document ID
+        doc_title: Document title for context
+        chunking_config: Chunking configuration
+        drop_unknown: Whether to drop docs with missing metadata
+        
+    Returns:
+        Tuple of (chunks_list, was_dropped)
+    """
+    chunks = []
+    
+    for page_data in pages:
+        text = page_data["text"].strip()
+
+        # Skip empty pages or pages with text quality warnings
+        if not text or text.startswith("[TEXT_QUALITY_WARNING]"):
+            if text.startswith("[TEXT_QUALITY_WARNING]"):
+                print(
+                    f"Skipping page {page_data['page_number']} of {pdf_basename} due to poor text quality"
+                )
+            continue
+
+        # Drop based on missing author/year if configured (once per document)
+        if drop_unknown and (not meta.authors or meta.year is None):
+            return [], True
+
+        # Final quality check before adding to corpus
+        if not is_text_quality_good(text):
+            print(
+                f"Skipping page {page_data['page_number']} of {pdf_basename} due to failed quality check"
             )
-        else:
-            pdf_data_list = [
-                extract_pdf_pages(str(f))
-                for f in tqdm(files_to_process_list, desc="Processing PDFs")
-            ]
-    else:
-        pdf_data_list = []
+            continue
 
+        # Apply chunking strategy
+        text_chunks = chunk_text(text, doc_title, chunking_config)
+
+        # Create Chunk objects for each text chunk
+        for chunk_idx, chunk_content in enumerate(text_chunks):
+            chunk = Chunk(
+                doc_id=doc_id,
+                source=pdf_basename,
+                page=page_data["page_number"],
+                text=chunk_content,
+                meta=meta,
+            )
+            chunks.append(chunk)
+    
+    return chunks, False
+
+
+def _extract_and_chunk_pdfs(
+    files_to_process_list: List[Path],
+    pdf_data_list: List[List[Dict[str, Any]]],
+    citation_config: Optional[dict],
+    chunking_config: Optional[dict],
+    doi_meta_map: Dict[str, DocMeta],
+    pdf_dir: Path,
+) -> tuple[List[Chunk], int, int, int]:
+    """Extract text from PDFs and create chunks with metadata enrichment.
+    
+    Args:
+        files_to_process_list: List of PDF files to process
+        pdf_data_list: Extracted page data from PDFs
+        citation_config: Configuration for citation enrichment
+        chunking_config: Configuration for text chunking
+        doi_meta_map: Pre-fetched DOI metadata
+        pdf_dir: Directory containing PDFs
+        
+    Returns:
+        Tuple of (corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown)
+    """
+    from .index import CACHE_DIR
+    
     # Load bibliography index if present
     biblio_map = {}
-    prefer_biblio = True
     drop_unknown = False
-    include_pandoc_cite = False
     if citation_config:
         idx_path = citation_config.get("bibliography_index_path")
         if idx_path:
@@ -547,138 +762,29 @@ async def build_corpus(
                 biblio_map = load_biblio_index(idx_path)
             except Exception:
                 biblio_map = {}
-        prefer_biblio = citation_config.get("prefer_bibliography", True)
         drop_unknown = citation_config.get("drop_unknown", False)
-        include_pandoc_cite = citation_config.get("include_pandoc_cite", False)
 
-    # Diagnostics counters
-    total_pdfs = len(files_to_process_list) if files_to_process_list else len(pdf_files)
     matched_via_index = 0
     matched_via_doi = 0
-    dropped_unknown = 0
-
-    # Collect all DOIs for batch processing
-    dois_to_fetch = []
-    pdf_metadata = []
-
-    for i, (pdf_file, pages) in enumerate(zip(files_to_process_list, pdf_data_list)):
-        if not pages:
-            pdf_metadata.append(None)
-            continue
-
-        pdf_basename = os.path.basename(str(pdf_file))
-        pdf_key = pdf_basename.lower()
-
-        # If we have a bibliography entry for this PDF, prefer it
-        biblio = biblio_map.get(pdf_key)
-        if biblio and prefer_biblio:
-            authors_fmt = []
-            for a in biblio.authors or []:
-                fam = (a.get("family") or "").strip()
-                giv = (a.get("given") or "").strip()
-                if fam and giv:
-                    authors_fmt.append(f"{fam}, {giv}")
-                elif fam:
-                    authors_fmt.append(fam)
-            meta = DocMeta(
-                title=biblio.title,
-                authors=authors_fmt,
-                year=biblio.year,
-                doi=biblio.doi,
-                source=pdf_basename,
-                start_page=biblio.start_page,
-                end_page=biblio.end_page,
-                citekey=biblio.citekey,
-            )
-            matched_via_index += 1
-            doi = biblio.doi
-        else:
-            # Look for DOI in first 2 pages
-            first_pages_text = " ".join([p["text"] for p in pages[:2]])
-            doi = find_doi_in_text(first_pages_text)
-            # If no basename match, but DOI exists and present in biblio (by DOI), use it
-            if prefer_biblio and (not biblio) and doi:
-                from .io_biblio import load_biblio_index_by_doi as _load_doi
-
-                doi_map = (
-                    _load_doi(citation_config.get("bibliography_index_path"))
-                    if citation_config
-                    else {}
-                )
-                by_doi = doi_map.get(doi.lower()) if doi else None
-                if by_doi:
-                    authors_fmt = []
-                    for a in by_doi.authors or []:
-                        fam = (a.get("family") or "").strip()
-                        giv = (a.get("given") or "").strip()
-                        if fam and giv:
-                            authors_fmt.append(f"{fam}, {giv}")
-                        elif fam:
-                            authors_fmt.append(fam)
-                    meta = DocMeta(
-                        title=by_doi.title,
-                        authors=authors_fmt,
-                        year=by_doi.year,
-                        doi=doi,
-                        source=pdf_basename,
-                        start_page=by_doi.start_page,
-                        end_page=by_doi.end_page,
-                        citekey=by_doi.citekey,
-                    )
-                    matched_via_index += 1
-                    pdf_metadata.append((meta, pages))
-                    if doi:
-                        dois_to_fetch.append(doi)
-                    continue
-            meta = DocMeta(title=None, authors=[], year=None, doi=doi, source=pdf_basename)
-
-        pdf_metadata.append((meta, pages))
-        if doi:
-            dois_to_fetch.append(doi)
-
-    # Batch fetch metadata for all DOIs
-    doi_meta_map = {}
-    if dois_to_fetch:
-        print(f"Fetching metadata for {len(dois_to_fetch)} DOIs...")
-
-        # Use configuration or defaults
-        if citation_config is None:
-            citation_config = {
-                "crossref": True,
-                "openalex": True,
-                "unpaywall": False,
-                "unpaywall_email": None,
-            }
-
-        from .cite import batch_enriched_lookup
-
-        async with httpx.AsyncClient() as client:
-            enriched_results = await batch_enriched_lookup(
-                client,
-                dois_to_fetch,
-                cache_seconds,
-                max_concurrent_api,
-                use_crossref=citation_config.get("crossref", True),
-                use_openalex=citation_config.get("openalex", True),
-                use_unpaywall=citation_config.get("unpaywall", False),
-                unpaywall_email=citation_config.get("unpaywall_email", "REDACTED"),
-            )
-
-            for doi, enriched_meta in zip(dois_to_fetch, enriched_results):
-                if enriched_meta:
-                    doi_meta_map[doi] = enriched_meta
-
-    # Build corpus with fetched metadata from processed files only
+    dropped_unknown_count = 0
     new_corpus_chunks = []
     doc_id = 0
+    total_pdfs = len(files_to_process_list)
 
-    for pdf_file, pdf_data in zip(files_to_process_list, pdf_metadata):
+    for i, (pdf_file, pdf_data) in enumerate(zip(files_to_process_list, pdf_data_list)):
         if pdf_data is None:
             continue
 
-        meta, pages = pdf_data
+        pdf_basename = os.path.basename(str(pdf_file))
+        pages = pdf_data
 
-        # Update metadata with fetched info (only if missing and doi lookup available)
+        # Get metadata from bibliography or extract DOI
+        meta, biblio_matched = _get_metadata_from_bibliography(
+            pdf_basename, pages, biblio_map, citation_config
+        )
+        matched_via_index += biblio_matched
+
+        # Update metadata with DOI lookup results
         if meta.doi and meta.doi in doi_meta_map:
             enriched_meta = doi_meta_map[meta.doi]
             # Only overwrite empty fields so biblio data remains authoritative
@@ -697,76 +803,28 @@ async def build_corpus(
             meta.oa_url = meta.oa_url or enriched_meta.oa_url
             matched_via_doi += 1
 
-        # Create chunks for each page using configured chunking strategy
-        doc_title = meta.title or os.path.basename(str(pdf_file)).replace(".pdf", "")
-
-        for page_data in pages:
-            text = page_data["text"].strip()
-
-            # Skip empty pages or pages with text quality warnings
-            if not text:
-                continue
-
-            # Check if this page has a text quality warning
-            if text.startswith("[TEXT_QUALITY_WARNING]"):
-                print(
-                    f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to poor text quality"
-                )
-                continue
-
-            # Drop based on missing author/year if configured (once per document)
-            if drop_unknown and (not meta.authors or meta.year is None):
-                # Mark entire document as dropped and stop processing its pages
-                dropped_unknown += 1
-                # Skip to next document (break inner page loop)
-                break
-
-            # Final quality check before adding to corpus
-            if not is_text_quality_good(text):
-                print(
-                    f"Skipping page {page_data['page_number']} of {os.path.basename(str(pdf_file))} due to failed quality check"
-                )
-                continue
-
-            # Apply chunking strategy
-            text_chunks = chunk_text(text, doc_title, chunking_config)
-
-            # Create Chunk objects for each text chunk
-            for chunk_idx, chunk_content in enumerate(text_chunks):
-                chunk = Chunk(
-                    doc_id=doc_id,
-                    source=os.path.basename(str(pdf_file)),
-                    page=page_data["page_number"],
-                    text=chunk_content,
-                    meta=meta,
-                )
-                new_corpus_chunks.append(chunk)
+        # Create chunks for each page
+        doc_title = meta.title or pdf_basename.replace(".pdf", "")
+        chunks, was_dropped = _create_chunks_from_pages(
+            pages, meta, pdf_basename, doc_id, doc_title, chunking_config, drop_unknown
+        )
+        
+        if was_dropped:
+            dropped_unknown_count += 1
+        else:
+            new_corpus_chunks.extend(chunks)
 
         # After finishing this PDF, update warmup diagnostics for UI polling
         try:
             import json as _json
-
             diag_path = CACHE_DIR / "warmup_diagnostics.json"
             diag_path.parent.mkdir(parents=True, exist_ok=True)
             diagnostics_partial = {
                 "total_pdfs": total_pdfs,
                 "processed_pdfs": i + 1,
-                "matched_via_index": len(matched_docs) if biblio_map else 0,
+                "matched_via_index": matched_via_index,
                 "matched_via_doi": matched_via_doi,
-                "dropped_unknown": len(dropped_docs) if drop_unknown else 0,
-                "new_files": (
-                    len(new_files) if "new_files" in locals() and new_files is not None else None
-                ),
-                "changed_files": (
-                    len(changed_files)
-                    if "changed_files" in locals() and changed_files is not None
-                    else None
-                ),
-                "removed_files": (
-                    len(removed_files)
-                    if "removed_files" in locals() and removed_files is not None
-                    else None
-                ),
+                "dropped_unknown": dropped_unknown_count,
                 "biblio_index_present": bool(biblio_map),
             }
             with open(diag_path, "w", encoding="utf-8") as _f:
@@ -776,49 +834,57 @@ async def build_corpus(
 
         doc_id += 1
 
-    # Merge with cached corpus chunks from unchanged files
-    final_corpus = []
+    return new_corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown_count
 
-    if cached_corpus and files_to_process:
-        # Keep chunks from files that weren't processed (unchanged files)
-        unchanged_files = [
-            f for f in pdf_files if f not in files_to_process and f not in removed_files
-        ]
-        cached_chunks_to_keep = filter_corpus_by_files(cached_corpus, unchanged_files)
-        final_corpus.extend(cached_chunks_to_keep)
-        print(
-            f"Keeping {len(cached_chunks_to_keep)} chunks from {len(unchanged_files)} unchanged files"
-        )
 
-    # Add newly processed chunks
-    final_corpus.extend(new_corpus_chunks)
-
+def _save_corpus_cache(
+    corpus: List[Chunk],
+    pdf_dir: Path,
+    pdf_files: List[Path],
+    matched_via_index: int,
+    matched_via_doi: int,
+    dropped_unknown: int,
+    new_files: List[Path],
+    changed_files: List[Path],
+    removed_files: List[Path],
+    biblio_map: dict,
+) -> None:
+    """Save corpus to cache with manifest and diagnostics.
+    
+    Args:
+        corpus: Corpus chunks to save
+        pdf_dir: Directory containing PDFs
+        pdf_files: All PDF files in directory
+        matched_via_index: Count of docs matched via bibliography index
+        matched_via_doi: Count of docs matched via DOI lookup
+        dropped_unknown: Count of docs dropped due to missing metadata
+        new_files: List of new files
+        changed_files: List of changed files
+        removed_files: List of removed files
+        biblio_map: Bibliography index map
+    """
+    from .index import (
+        manifest_for_dir_with_text_hash,
+        save_corpus_to_cache,
+        save_manifest,
+        CACHE_DIR,
+    )
+    
     # Cache the results
-    save_corpus_to_cache(final_corpus)
-    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, final_corpus)
+    save_corpus_to_cache(corpus)
+    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, corpus)
     save_manifest(enhanced_manifest)
 
-    processed_files_count = len(files_to_process_list) if files_to_process else len(pdf_files)
-    print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
-    print(f"Total corpus: {len(final_corpus)} chunks from {len(pdf_files)} PDFs")
-    # Diagnostics summary
+    # Write diagnostics
     diagnostics = {
-        "total_pdfs": total_pdfs,
-        "processed_pdfs": processed_files_count,
+        "total_pdfs": len(pdf_files),
+        "processed_pdfs": len(new_files) + len(changed_files) if new_files or changed_files else len(pdf_files),
         "matched_via_index": matched_via_index,
         "matched_via_doi": matched_via_doi,
         "dropped_unknown": dropped_unknown,
-        "new_files": len(new_files) if "new_files" in locals() and new_files is not None else None,
-        "changed_files": (
-            len(changed_files)
-            if "changed_files" in locals() and changed_files is not None
-            else None
-        ),
-        "removed_files": (
-            len(removed_files)
-            if "removed_files" in locals() and removed_files is not None
-            else None
-        ),
+        "new_files": len(new_files) if new_files is not None else None,
+        "changed_files": len(changed_files) if changed_files is not None else None,
+        "removed_files": len(removed_files) if removed_files is not None else None,
         "biblio_index_present": bool(biblio_map),
     }
     try:
@@ -831,10 +897,269 @@ async def build_corpus(
     except Exception as e:
         print(f"Failed to write diagnostics: {e}")
 
+
+def _collect_dois_from_pdfs(
+    files_to_process_list: List[Path],
+    pdf_data_list: List[List[Dict[str, Any]]],
+    citation_config: Optional[dict],
+) -> List[str]:
+    """Collect DOIs from PDF pages for batch lookup.
+    
+    Args:
+        files_to_process_list: List of PDF files to process
+        pdf_data_list: Extracted page data from PDFs
+        citation_config: Configuration for citation enrichment
+        
+    Returns:
+        List of DOIs found in PDFs
+    """
+    # Load bibliography index if present
+    biblio_map = {}
+    prefer_biblio = True
+    if citation_config:
+        idx_path = citation_config.get("bibliography_index_path")
+        if idx_path:
+            try:
+                biblio_map = load_biblio_index(idx_path)
+            except Exception:
+                biblio_map = {}
+        prefer_biblio = citation_config.get("prefer_bibliography", True)
+    
+    dois_to_fetch = []
+    for pdf_file, pages in zip(files_to_process_list, pdf_data_list):
+        if not pages:
+            continue
+            
+        pdf_basename = os.path.basename(str(pdf_file))
+        pdf_key = pdf_basename.lower()
+        
+        # Check if we have bibliography entry with DOI
+        biblio = biblio_map.get(pdf_key)
+        if biblio and prefer_biblio and biblio.doi:
+            dois_to_fetch.append(biblio.doi)
+        else:
+            # Look for DOI in first 2 pages
+            first_pages_text = " ".join([p["text"] for p in pages[:2]])
+            doi = find_doi_in_text(first_pages_text)
+            if doi:
+                dois_to_fetch.append(doi)
+    
+    return dois_to_fetch
+
+
+def _log_processing_status(
+    files_to_process: List[Path],
+    new_files: List[Path],
+    changed_files: List[Path],
+    removed_files: List[Path],
+    pdf_files: List[Path],
+) -> None:
+    """Log what files are being processed.
+    
+    Args:
+        files_to_process: Files that need processing
+        new_files: New files detected
+        changed_files: Changed files detected
+        removed_files: Removed files detected
+        pdf_files: All PDF files in directory
+    """
+    if files_to_process:
+        print(
+            f"Processing {len(files_to_process)} changed/new PDFs (out of {len(pdf_files)} total)..."
+        )
+        if new_files:
+            print(f"  - {len(new_files)} new files")
+        if changed_files:
+            print(f"  - {len(changed_files)} changed files")
+        if removed_files:
+            print(f"  - {len(removed_files)} removed files")
+    else:
+        print(f"Processing {len(pdf_files)} PDFs (initial build)...")
+
+
+def _extract_pdf_text_parallel(
+    files_to_process_list: List[Path],
+    max_workers: Optional[int],
+) -> List[List[Dict[str, Any]]]:
+    """Extract text from PDFs in parallel.
+    
+    Args:
+        files_to_process_list: List of PDF files to process
+        max_workers: Maximum number of worker threads
+        
+    Returns:
+        List of extracted page data for each PDF
+    """
+    from .performance import get_optimal_worker_count, process_with_thread_pool
+    
+    if not files_to_process_list:
+        return []
+    
+    if max_workers is None:
+        max_workers = get_optimal_worker_count()
+
+    if max_workers > 1 and len(files_to_process_list) > 1:
+        print(f"Using {max_workers} workers for PDF processing")
+        return process_with_thread_pool(
+            extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers
+        )
+    else:
+        return [
+            extract_pdf_pages(str(f))
+            for f in tqdm(files_to_process_list, desc="Processing PDFs")
+        ]
+
+
+def _merge_with_cached_corpus(
+    cached_corpus: Optional[List[Chunk]],
+    files_to_process: List[Path],
+    pdf_files: List[Path],
+    removed_files: List[Path],
+) -> List[Chunk]:
+    """Merge new chunks with cached chunks from unchanged files.
+    
+    Args:
+        cached_corpus: Previously cached corpus
+        files_to_process: Files that were processed
+        pdf_files: All PDF files in directory
+        removed_files: Removed files
+        
+    Returns:
+        List of chunks from unchanged files
+    """
+    from .index import filter_corpus_by_files
+    
+    if not cached_corpus or not files_to_process:
+        return []
+    
+    # Keep chunks from files that weren't processed (unchanged files)
+    unchanged_files = [
+        f for f in pdf_files if f not in files_to_process and f not in removed_files
+    ]
+    cached_chunks_to_keep = filter_corpus_by_files(cached_corpus, unchanged_files)
+    print(
+        f"Keeping {len(cached_chunks_to_keep)} chunks from {len(unchanged_files)} unchanged files"
+    )
+    return cached_chunks_to_keep
+
+
+def _print_final_stats(
+    new_corpus_chunks: List[Chunk],
+    final_corpus: List[Chunk],
+    files_to_process: List[Path],
+    pdf_files: List[Path],
+    matched_via_index: int,
+    matched_via_doi: int,
+    dropped_unknown: int,
+    biblio_map: dict,
+    citation_config: Optional[dict],
+) -> None:
+    """Print final processing statistics.
+    
+    Args:
+        new_corpus_chunks: Newly created chunks
+        final_corpus: Final merged corpus
+        files_to_process: Files that were processed
+        pdf_files: All PDF files in directory
+        matched_via_index: Count of docs matched via bibliography
+        matched_via_doi: Count of docs matched via DOI lookup
+        dropped_unknown: Count of docs dropped
+        biblio_map: Bibliography index map
+        citation_config: Citation configuration
+    """
+    processed_files_count = len(files_to_process) if files_to_process else len(pdf_files)
+    print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
+    print(f"Total corpus: {len(final_corpus)} chunks from {len(pdf_files)} PDFs")
+
     if biblio_map:
-        print(f"Bibliography index matched: {matched_via_index}/{total_pdfs}")
+        print(f"Bibliography index matched: {matched_via_index}/{processed_files_count}")
     if matched_via_doi:
         print(f"DOI lookups matched: {matched_via_doi}")
-    if drop_unknown:
+    if citation_config and citation_config.get("drop_unknown", False):
         print(f"Dropped unknown (author/year): {dropped_unknown}")
+
+
+async def build_corpus(
+    pdf_dir: Path,
+    max_workers: Optional[int] = None,
+    cache_seconds: int = 604800,
+    max_concurrent_api: int = 5,
+    citation_config: Optional[dict] = None,
+    chunking_config: Optional[dict] = None,
+) -> List[Chunk]:
+    """Build corpus by extracting text from all PDFs in directory."""
+    from .index import (
+        detect_changed_files,
+        load_corpus_from_cache,
+        load_manifest,
+    )
+
+    # Discover PDF files
+    pdf_files = _discover_pdf_files(pdf_dir)
+    if not pdf_files:
+        return []
+
+    # Check cache and detect changes
+    cached_corpus = load_corpus_from_cache()
+    cached_manifest = load_manifest()
+    new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
+    
+    # Try to use cached corpus if no processing needed
+    cached_result = _try_load_cache(
+        pdf_files, pdf_dir, citation_config,
+        new_files, changed_files, removed_files, cached_corpus
+    )
+    if cached_result is not None:
+        return cached_result
+    
+    # Determine which files to process
+    files_to_process = new_files + changed_files
+    _log_processing_status(files_to_process, new_files, changed_files, removed_files, pdf_files)
+    files_to_process_list = list(files_to_process) if files_to_process else pdf_files
+
+    # Extract text from PDFs in parallel
+    pdf_data_list = _extract_pdf_text_parallel(files_to_process_list, max_workers)
+
+    # Collect DOIs and fetch metadata in parallel
+    dois_to_fetch = _collect_dois_from_pdfs(files_to_process_list, pdf_data_list, citation_config)
+    doi_meta_map = await _enrich_citations_parallel(
+        dois_to_fetch, citation_config, cache_seconds, max_concurrent_api
+    )
+
+    # Extract and chunk PDFs with enriched metadata
+    new_corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown = _extract_and_chunk_pdfs(
+        files_to_process_list, pdf_data_list, citation_config,
+        chunking_config, doi_meta_map, pdf_dir
+    )
+
+    # Merge with cached corpus chunks from unchanged files
+    cached_chunks = _merge_with_cached_corpus(
+        cached_corpus, files_to_process, pdf_files, removed_files
+    )
+    final_corpus = cached_chunks + new_corpus_chunks
+
+    # Load bibliography map for diagnostics
+    biblio_map = {}
+    if citation_config:
+        idx_path = citation_config.get("bibliography_index_path")
+        if idx_path:
+            try:
+                biblio_map = load_biblio_index(idx_path)
+            except Exception:
+                pass
+
+    # Save corpus cache with diagnostics
+    _save_corpus_cache(
+        final_corpus, pdf_dir, pdf_files,
+        matched_via_index, matched_via_doi, dropped_unknown,
+        new_files, changed_files, removed_files, biblio_map
+    )
+
+    # Print final statistics
+    _print_final_stats(
+        new_corpus_chunks, final_corpus, files_to_process, pdf_files,
+        matched_via_index, matched_via_doi, dropped_unknown,
+        biblio_map, citation_config
+    )
+
     return final_corpus
