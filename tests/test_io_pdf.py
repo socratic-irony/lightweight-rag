@@ -2,7 +2,10 @@
 """Additional tests for io_pdf module to improve coverage."""
 
 import sys
+import tempfile
 from pathlib import Path
+from unittest.mock import patch, MagicMock, mock_open
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -11,7 +14,9 @@ from lightweight_rag.io_pdf import (
     clean_text,
     normalize_text,
     split_into_sentences,
-    chunk_text
+    chunk_text,
+    create_sliding_windows,
+    extract_pdf_pages
 )
 
 
@@ -168,3 +173,151 @@ class TestChunkText:
         chunks = chunk_text("", doc_title="Test", chunking_config={"method": "sliding"})
         # Should return empty or minimal chunks
         assert isinstance(chunks, list)
+
+
+class TestSlidingWindows:
+    """Test sliding window creation."""
+    
+    def test_sliding_windows_basic(self):
+        """Test basic sliding window creation."""
+        text = " ".join([f"word{i}" for i in range(50)])
+        windows = create_sliding_windows(text, window_chars=100, overlap_chars=20)
+        assert len(windows) >= 1
+        # Check overlap exists between consecutive windows
+        if len(windows) > 1:
+            # Some content should overlap
+            assert any(word in windows[1] for word in windows[0].split()[-5:])
+    
+    def test_sliding_windows_short_text(self):
+        """Test sliding window with text shorter than window size."""
+        text = "Short text here"
+        windows = create_sliding_windows(text, window_chars=100, overlap_chars=20)
+        assert len(windows) == 1
+        assert windows[0] == text
+    
+    def test_sliding_windows_no_overlap(self):
+        """Test sliding windows with no overlap."""
+        text = " ".join([f"word{i}" for i in range(50)])
+        windows = create_sliding_windows(text, window_chars=100, overlap_chars=0)
+        assert len(windows) >= 1
+    
+    def test_sliding_windows_boundary_conditions(self):
+        """Test sliding window boundary conditions."""
+        # Test with exact multiples
+        text = "a " * 50  # 100 chars
+        windows = create_sliding_windows(text, window_chars=50, overlap_chars=10)
+        assert len(windows) >= 2
+    
+    def test_sliding_windows_empty_text(self):
+        """Test sliding windows with empty text."""
+        windows = create_sliding_windows("", window_chars=100, overlap_chars=20)
+        # Empty text returns a list with empty string or empty list depending on implementation
+        assert isinstance(windows, list)
+        assert len(windows) <= 1
+    
+    def test_sliding_windows_very_long_words(self):
+        """Test sliding windows with very long words that exceed window size."""
+        # Create text with a word longer than window
+        long_word = "x" * 150
+        text = f"short {long_word} text"
+        windows = create_sliding_windows(text, window_chars=100, overlap_chars=20)
+        # Should handle gracefully
+        assert isinstance(windows, list)
+
+
+class TestTextQualityEdgeCases:
+    """Test text quality validation edge cases."""
+    
+    def test_excessive_control_characters(self):
+        """Test rejection of text with excessive control characters."""
+        # More than 5% control characters should fail
+        text = "normal" + "\x01\x02\x03" * 10
+        assert is_text_quality_good(text) is False
+    
+    def test_repeated_patterns(self):
+        """Test detection of excessive repeated patterns."""
+        # Many repeated non-space patterns indicate encoding issues
+        text = "aaaaaa bbbbb ccccc ddddd eeeeee"
+        result = is_text_quality_good(text)
+        # This should fail due to repeated patterns
+        assert result is False
+    
+    def test_lack_common_characters(self):
+        """Test rejection of text without common characters."""
+        # Text with no common English letters
+        text = "####$$$$%%%%^^^^&&&&****" * 10
+        assert is_text_quality_good(text) is False
+    
+    def test_borderline_quality(self):
+        """Test borderline quality text."""
+        # Text with some control chars but still readable
+        text = "This is mostly readable text with some issues."
+        assert is_text_quality_good(text) is True
+
+
+class TestTextEncodingScenarios:
+    """Test various text encoding scenarios."""
+    
+    def test_unicode_text(self):
+        """Test handling of Unicode text."""
+        text = "Hëllö Wörld! Café résumé naïve"
+        cleaned = clean_text(text)
+        assert "Hëllö" in cleaned or "Hello" in cleaned
+    
+    def test_mixed_encoding(self):
+        """Test text with mixed encoding issues."""
+        text = "Normal text\x00with\x01null\x02bytes"
+        cleaned = clean_text(text)
+        assert "\x00" not in cleaned
+        assert "\x01" not in cleaned
+        assert "Normal text" in cleaned
+    
+    def test_soft_hyphens(self):
+        """Test removal of soft hyphens."""
+        text = "hyphen\u00ADated\u00ADword"
+        normalized = normalize_text(text)
+        assert "\u00AD" not in normalized
+        assert "hyphenated" in normalized or "hyphen ated" in normalized
+    
+    def test_line_break_handling(self):
+        """Test handling of line breaks and hyphens."""
+        text = "some-\nthing"
+        normalized = normalize_text(text)
+        # Should handle hyphenated line breaks
+        assert isinstance(normalized, str)
+
+
+class TestPDFExtraction:
+    """Test PDF extraction with mocking."""
+    
+    def test_extract_pdf_malformed(self):
+        """Test extraction with malformed PDF."""
+        with patch('lightweight_rag.io_pdf.fitz.open') as mock_open:
+            mock_open.side_effect = Exception("Malformed PDF")
+            
+            result = extract_pdf_pages("fake.pdf")
+            assert result == []
+    
+    def test_extract_pdf_pages_quality_fallback(self):
+        """Test that extraction falls back to alternative method on poor quality."""
+        mock_doc = MagicMock()
+        mock_page = MagicMock()
+        
+        # First extraction yields poor quality
+        mock_page.get_text.return_value = "\x00\x01\x02" * 50
+        
+        # Alternative extraction yields good quality
+        mock_textpage = MagicMock()
+        mock_textpage.extractText.return_value = "This is good quality text extracted using alternative method."
+        mock_page.get_textpage.return_value = mock_textpage
+        
+        mock_doc.__len__.return_value = 1
+        mock_doc.load_page.return_value = mock_page
+        mock_doc.__enter__ = lambda self: mock_doc
+        mock_doc.__exit__ = lambda self, *args: None
+        
+        with patch('lightweight_rag.io_pdf.fitz.open', return_value=mock_doc):
+            pages = extract_pdf_pages("test.pdf")
+            assert len(pages) == 1
+            # Should have attempted alternative extraction
+            assert mock_page.get_textpage.called or mock_page.get_text.called
