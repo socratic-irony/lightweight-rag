@@ -16,20 +16,28 @@ A fast, minimal PDF → BM25 → top-k retrieval system with smart caching, quer
 - **Proximity Bonuses**: Rewards when query terms appear close together
 - **N-gram Matching**: Boosts results containing exact phrase matches
 - **Pattern Recognition**: Identifies academic answer patterns ("we propose", "method")
+- **Heuristic Reranking**: Lightweight pre-filtering based on coverage, proximity, and phrase matching
 
 ### 🧠 **Advanced Retrieval**
 - **Reciprocal Rank Fusion (RRF)**: Combines multiple ranking strategies for better results
+- **MMR Diversification**: Maximal Marginal Relevance for balanced result diversity
 - **Diversity Control**: Prevents over-representation from single documents
 - **Semantic Reranking**: Optional CPU-based sentence-transformers integration
 - **Multi-Run Ranking**: Fuses baseline BM25, RM3 expansion, semantic, and robust query variants
 - **Caching System**: Intelligent caching of parsed PDFs, indices, and metadata
-- **Academic Citations**: Automatic DOI extraction with Crossref/OpenAlex integration
+- **Academic Citations**: Automatic DOI extraction with Crossref/OpenAlex/Unpaywall integration
+
+### 📑 **Flexible Text Processing**
+- **Sliding Window Chunking**: Configurable window size with overlap for optimal precision
+- **Multiple Chunking Strategies**: Page-based, sentence-based, or sliding window modes
+- **Text Quality Validation**: Automatic detection and handling of unreadable PDFs
 
 ### ⚡ **Performance & Usability**
 - **Fast Cold Start**: Only imports what's needed for quick startup
 - **Memory Efficient**: Streaming PDF processing with configurable chunk sizes
 - **Configurable**: YAML config with environment variable and CLI overrides
 - **Robust**: Comprehensive error handling and graceful degradation
+- **Module & Subprocess Interfaces**: Use as Python package or via JSON subprocess (Node.js compatible)
 
 ## 🎯 Quick Start
 
@@ -78,27 +86,6 @@ pip install numpy>=1.24.0 sentence-transformers>=2.2.0
 ```
 
 *Note: Semantic reranking significantly increases download size (~500MB) but provides better result ranking.*
-
-## 🐳 GitHub Codespaces
-
-This repository is optimized for GitHub Codespaces development:
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/socratic-irony/lightweight-rag)
-
-### What's Included
-- **Pre-configured Python 3.12 environment** with all dependencies
-- **VS Code extensions** for Python development, linting, and formatting
-- **Automatic dependency installation** on container startup
-- **Optimized settings** for Python development workflow
-- **Fast startup** with cached PDF processing and intelligent caching
-
-### Getting Started in Codespaces
-1. Click the Codespaces badge above or create a new codespace from the repository
-2. Wait for the container to build and dependencies to install (~2-3 minutes)
-3. Add your PDFs to the `pdfs/` directory
-4. Run: `python rag.py --query "your search query"`
-
-The devcontainer configuration ensures optimal performance and includes all necessary tools for development and testing.
 
 ## ⚙️ Configuration
 
@@ -268,21 +255,6 @@ function queryPDF(query, config = {}) {
     process.stdin.end();
   });
 }
-```
-
-## 🔒 Security Considerations
-
-When using this library:
-
-- **API Keys**: Never hardcode API keys. Use environment variables or config files excluded from version control
-- **Email Configuration**: Set `crossref_email` and `unpaywall_email` via environment variables (`RAG_PATHS_CROSSREF_EMAIL`, `RAG_CITATIONS_UNPAYWALL_EMAIL`)
-- **PDF Content**: Be mindful of sensitive content in PDFs when using in production environments
-- **Subprocess Mode**: When using CLI subprocess interface, validate input queries to prevent injection attacks
-
-Example secure configuration:
-```bash
-export RAG_PATHS_CROSSREF_EMAIL="your-email@domain.com"
-export RAG_CITATIONS_UNPAYWALL_EMAIL="your-email@domain.com"
 ```
 
 ## 📄 License
