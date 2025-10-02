@@ -947,51 +947,22 @@ def _collect_dois_from_pdfs(
     return dois_to_fetch
 
 
-async def build_corpus(
-    pdf_dir: Path,
-    max_workers: Optional[int] = None,
-    cache_seconds: int = 604800,
-    max_concurrent_api: int = 5,
-    citation_config: Optional[dict] = None,
-    chunking_config: Optional[dict] = None,
-) -> List[Chunk]:
-    """Build corpus by extracting text from all PDFs in directory."""
-    import httpx
-
-    from .index import (
-        CACHE_DIR,
-        detect_changed_files,
-        filter_corpus_by_files,
-        load_corpus_from_cache,
-        load_manifest,
-        manifest_for_dir_with_text_hash,
-        save_corpus_to_cache,
-        save_manifest,
-    )
-    from .performance import get_optimal_worker_count, process_with_thread_pool
-
-    pdf_files = _discover_pdf_files(pdf_dir)
-    if not pdf_files:
-        return []
-
-    # Check cache and detect changes for incremental processing
-    cached_corpus = load_corpus_from_cache()
-    cached_manifest = load_manifest()
-
-    # Detect which files have changed
-    new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
+def _log_processing_status(
+    files_to_process: List[Path],
+    new_files: List[Path],
+    changed_files: List[Path],
+    removed_files: List[Path],
+    pdf_files: List[Path],
+) -> None:
+    """Log what files are being processed.
     
-    # Try to use cached corpus if no processing needed
-    cached_result = _try_load_cache(
-        pdf_files, pdf_dir, citation_config,
-        new_files, changed_files, removed_files, cached_corpus
-    )
-    if cached_result is not None:
-        return cached_result
-    
-    files_to_process = new_files + changed_files
-
-    # Log what we're processing
+    Args:
+        files_to_process: Files that need processing
+        new_files: New files detected
+        changed_files: Changed files detected
+        removed_files: Removed files detected
+        pdf_files: All PDF files in directory
+    """
     if files_to_process:
         print(
             f"Processing {len(files_to_process)} changed/new PDFs (out of {len(pdf_files)} total)..."
@@ -1005,26 +976,149 @@ async def build_corpus(
     else:
         print(f"Processing {len(pdf_files)} PDFs (initial build)...")
 
-    # Only process files that need processing, not all files
-    files_to_process_list = list(files_to_process) if files_to_process else pdf_files
 
-    # Extract text from PDFs that need processing (potentially in parallel)
+def _extract_pdf_text_parallel(
+    files_to_process_list: List[Path],
+    max_workers: Optional[int],
+) -> List[List[Dict[str, Any]]]:
+    """Extract text from PDFs in parallel.
+    
+    Args:
+        files_to_process_list: List of PDF files to process
+        max_workers: Maximum number of worker threads
+        
+    Returns:
+        List of extracted page data for each PDF
+    """
+    from .performance import get_optimal_worker_count, process_with_thread_pool
+    
+    if not files_to_process_list:
+        return []
+    
     if max_workers is None:
         max_workers = get_optimal_worker_count()
 
-    if files_to_process_list:
-        if max_workers > 1 and len(files_to_process_list) > 1:
-            print(f"Using {max_workers} workers for PDF processing")
-            pdf_data_list = process_with_thread_pool(
-                extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers
-            )
-        else:
-            pdf_data_list = [
-                extract_pdf_pages(str(f))
-                for f in tqdm(files_to_process_list, desc="Processing PDFs")
-            ]
+    if max_workers > 1 and len(files_to_process_list) > 1:
+        print(f"Using {max_workers} workers for PDF processing")
+        return process_with_thread_pool(
+            extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers
+        )
     else:
-        pdf_data_list = []
+        return [
+            extract_pdf_pages(str(f))
+            for f in tqdm(files_to_process_list, desc="Processing PDFs")
+        ]
+
+
+def _merge_with_cached_corpus(
+    cached_corpus: Optional[List[Chunk]],
+    files_to_process: List[Path],
+    pdf_files: List[Path],
+    removed_files: List[Path],
+) -> List[Chunk]:
+    """Merge new chunks with cached chunks from unchanged files.
+    
+    Args:
+        cached_corpus: Previously cached corpus
+        files_to_process: Files that were processed
+        pdf_files: All PDF files in directory
+        removed_files: Removed files
+        
+    Returns:
+        List of chunks from unchanged files
+    """
+    from .index import filter_corpus_by_files
+    
+    if not cached_corpus or not files_to_process:
+        return []
+    
+    # Keep chunks from files that weren't processed (unchanged files)
+    unchanged_files = [
+        f for f in pdf_files if f not in files_to_process and f not in removed_files
+    ]
+    cached_chunks_to_keep = filter_corpus_by_files(cached_corpus, unchanged_files)
+    print(
+        f"Keeping {len(cached_chunks_to_keep)} chunks from {len(unchanged_files)} unchanged files"
+    )
+    return cached_chunks_to_keep
+
+
+def _print_final_stats(
+    new_corpus_chunks: List[Chunk],
+    final_corpus: List[Chunk],
+    files_to_process: List[Path],
+    pdf_files: List[Path],
+    matched_via_index: int,
+    matched_via_doi: int,
+    dropped_unknown: int,
+    biblio_map: dict,
+    citation_config: Optional[dict],
+) -> None:
+    """Print final processing statistics.
+    
+    Args:
+        new_corpus_chunks: Newly created chunks
+        final_corpus: Final merged corpus
+        files_to_process: Files that were processed
+        pdf_files: All PDF files in directory
+        matched_via_index: Count of docs matched via bibliography
+        matched_via_doi: Count of docs matched via DOI lookup
+        dropped_unknown: Count of docs dropped
+        biblio_map: Bibliography index map
+        citation_config: Citation configuration
+    """
+    processed_files_count = len(files_to_process) if files_to_process else len(pdf_files)
+    print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
+    print(f"Total corpus: {len(final_corpus)} chunks from {len(pdf_files)} PDFs")
+
+    if biblio_map:
+        print(f"Bibliography index matched: {matched_via_index}/{processed_files_count}")
+    if matched_via_doi:
+        print(f"DOI lookups matched: {matched_via_doi}")
+    if citation_config and citation_config.get("drop_unknown", False):
+        print(f"Dropped unknown (author/year): {dropped_unknown}")
+
+
+async def build_corpus(
+    pdf_dir: Path,
+    max_workers: Optional[int] = None,
+    cache_seconds: int = 604800,
+    max_concurrent_api: int = 5,
+    citation_config: Optional[dict] = None,
+    chunking_config: Optional[dict] = None,
+) -> List[Chunk]:
+    """Build corpus by extracting text from all PDFs in directory."""
+    from .index import (
+        detect_changed_files,
+        load_corpus_from_cache,
+        load_manifest,
+    )
+
+    # Discover PDF files
+    pdf_files = _discover_pdf_files(pdf_dir)
+    if not pdf_files:
+        return []
+
+    # Check cache and detect changes
+    cached_corpus = load_corpus_from_cache()
+    cached_manifest = load_manifest()
+    new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
+    
+    # Try to use cached corpus if no processing needed
+    cached_result = _try_load_cache(
+        pdf_files, pdf_dir, citation_config,
+        new_files, changed_files, removed_files, cached_corpus
+    )
+    if cached_result is not None:
+        return cached_result
+    
+    # Determine which files to process
+    files_to_process = new_files + changed_files
+    _log_processing_status(files_to_process, new_files, changed_files, removed_files, pdf_files)
+    files_to_process_list = list(files_to_process) if files_to_process else pdf_files
+
+    # Extract text from PDFs in parallel
+    pdf_data_list = _extract_pdf_text_parallel(files_to_process_list, max_workers)
 
     # Collect DOIs and fetch metadata in parallel
     dois_to_fetch = _collect_dois_from_pdfs(files_to_process_list, pdf_data_list, citation_config)
@@ -1039,20 +1133,10 @@ async def build_corpus(
     )
 
     # Merge with cached corpus chunks from unchanged files
-    final_corpus = []
-    if cached_corpus and files_to_process:
-        # Keep chunks from files that weren't processed (unchanged files)
-        unchanged_files = [
-            f for f in pdf_files if f not in files_to_process and f not in removed_files
-        ]
-        cached_chunks_to_keep = filter_corpus_by_files(cached_corpus, unchanged_files)
-        final_corpus.extend(cached_chunks_to_keep)
-        print(
-            f"Keeping {len(cached_chunks_to_keep)} chunks from {len(unchanged_files)} unchanged files"
-        )
-
-    # Add newly processed chunks
-    final_corpus.extend(new_corpus_chunks)
+    cached_chunks = _merge_with_cached_corpus(
+        cached_corpus, files_to_process, pdf_files, removed_files
+    )
+    final_corpus = cached_chunks + new_corpus_chunks
 
     # Load bibliography map for diagnostics
     biblio_map = {}
@@ -1062,7 +1146,7 @@ async def build_corpus(
             try:
                 biblio_map = load_biblio_index(idx_path)
             except Exception:
-                biblio_map = {}
+                pass
 
     # Save corpus cache with diagnostics
     _save_corpus_cache(
@@ -1071,15 +1155,11 @@ async def build_corpus(
         new_files, changed_files, removed_files, biblio_map
     )
 
-    processed_files_count = len(files_to_process_list) if files_to_process else len(pdf_files)
-    print(f"Extracted {len(new_corpus_chunks)} chunks from {processed_files_count} processed PDFs")
-    print(f"Total corpus: {len(final_corpus)} chunks from {len(pdf_files)} PDFs")
-
-    if biblio_map:
-        print(f"Bibliography index matched: {matched_via_index}/{processed_files_count}")
-    if matched_via_doi:
-        print(f"DOI lookups matched: {matched_via_doi}")
-    if citation_config and citation_config.get("drop_unknown", False):
-        print(f"Dropped unknown (author/year): {dropped_unknown}")
+    # Print final statistics
+    _print_final_stats(
+        new_corpus_chunks, final_corpus, files_to_process, pdf_files,
+        matched_via_index, matched_via_doi, dropped_unknown,
+        biblio_map, citation_config
+    )
 
     return final_corpus
