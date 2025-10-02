@@ -208,6 +208,39 @@ python -m pytest tests/test_core_functions.py -v
 python -m pytest tests/test_integration.py -v
 ```
 
+**Current Coverage:** 66% (204 tests passing, 3 skipped)
+
+## 📊 Code Quality
+
+This repository maintains high code quality standards:
+
+- ✅ **Average Complexity:** 6.78 (Grade B - Good)
+- ✅ **Security:** 0 vulnerabilities (Bandit scan)
+- ✅ **Maintainability:** 16/18 modules rated 'A'
+- ✅ **Test-to-Code Ratio:** 1.11:1 (Excellent)
+- ✅ **Code Style:** Black + isort formatting
+
+**Quality Reports:**
+- 📖 [Comprehensive Analysis Report](docs/CODE_QUALITY_REPORT.md)
+- ✅ [Improvement Checklist](docs/CODE_QUALITY_CHECKLIST.md)
+- 📊 [Quality Documentation](docs/README_CODE_QUALITY.md)
+
+Run quality checks:
+```bash
+# Quick quality check
+python scripts/check_quality.py
+
+# Code formatting
+black lightweight_rag/ --line-length 100
+isort lightweight_rag/ --profile black
+
+# Linting
+flake8 lightweight_rag/ --max-line-length=100
+
+# Complexity analysis
+radon cc lightweight_rag/ -a -s
+```
+
 ## 🔧 Advanced Usage
 
 ### Python Module Import
