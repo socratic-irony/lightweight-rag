@@ -227,23 +227,31 @@ class TestCacheLogic:
         """Test that fresh cache entries are used."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
         
-        # Mock cache with fresh entry
+        # Mock cache with fresh entry - use correct cache structure
         cache_data = {
             "10.1234/test": {
-                "timestamp": 9999999999.0,  # Far future
-                "title": "Cached Title",
-                "authors": ["Author 1"]
+                "crossref": {
+                    "title": "Cached Title",
+                    "authors": ["Author 1"],
+                    "year": 2023
+                },
+                "updated_at": "2099-01-01T00:00:00+00:00"  # Far future
             }
         }
         
         with patch('lightweight_rag.cite.load_doi_cache', return_value=cache_data):
             with patch('lightweight_rag.cite.is_doi_cache_fresh', return_value=True):
-                # Should use cache without making API call
-                results = await batch_crossref_lookup(
-                    mock_client, ["10.1234/test"], cache_seconds=3600
-                )
-                # Should not have called the API
-                assert not mock_client.get.called or mock_client.get.call_count == 0
+                with patch('lightweight_rag.cite.get_cached_doi_metadata', return_value=cache_data["10.1234/test"]):
+                    # Should use cache without making API call
+                    results = await batch_crossref_lookup(
+                        mock_client, ["10.1234/test"], cache_seconds=3600
+                    )
+                    # Should return cached data
+                    assert len(results) == 1
+                    assert results[0] is not None
+                    assert results[0].title == "Cached Title"
+                    # Should not have called the API
+                    assert mock_client.get.call_count == 0
 
 
 class TestMetadataEnrichment:
