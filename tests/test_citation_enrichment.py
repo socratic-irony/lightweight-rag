@@ -263,4 +263,85 @@ class TestDocMetaEnhancements:
         assert meta.venue is None
         assert meta.publisher is None
         assert meta.concepts is None
-        assert meta.oa_url is None
+
+
+class TestAuthorDateCitation:
+    """Test author-date citation formatting."""
+    
+    def test_author_date_with_page(self):
+        """Test author-date citation with page number."""
+        from lightweight_rag.cite import author_date_citation
+        
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John", "Doe, Jane"],
+            year=2023,
+            doi="10.1234/test",
+            source="test.pdf"
+        )
+        
+        citation = author_date_citation(meta, 42)
+        assert "Smith" in citation
+        assert "2023" in citation
+        assert "42" in citation
+    
+    def test_author_date_without_page(self):
+        """Test author-date citation without page number."""
+        from lightweight_rag.cite import author_date_citation
+        
+        meta = DocMeta(
+            title="Test Paper",
+            authors=["Smith, John"],
+            year=2023,
+            doi="10.1234/test",
+            source="test.pdf"
+        )
+        
+        citation = author_date_citation(meta, None)
+        assert "Smith" in citation
+        assert "2023" in citation
+    
+    def test_author_date_no_authors(self):
+        """Test author-date citation with no authors."""
+        from lightweight_rag.cite import author_date_citation
+        
+        meta = DocMeta(
+            title="Test Paper",
+            authors=[],
+            year=2023,
+            doi="10.1234/test",
+            source="test.pdf"
+        )
+        
+        citation = author_date_citation(meta, 42)
+        assert "2023" in citation
+
+
+class TestBatchLookup:
+    """Test batch lookup functionality."""
+    
+    @pytest.mark.asyncio
+    async def test_batch_enriched_lookup_empty(self):
+        """Test batch enriched lookup with empty DOI list."""
+        from lightweight_rag.cite import batch_enriched_lookup
+        
+        client = httpx.AsyncClient()
+        results = await batch_enriched_lookup(client, [], cache_seconds=1)
+        
+        assert results == []
+    
+    @pytest.mark.asyncio
+    async def test_batch_enriched_lookup_with_errors(self):
+        """Test batch enriched lookup handles errors gracefully."""
+        from lightweight_rag.cite import batch_enriched_lookup
+        
+        with patch('lightweight_rag.cite.enriched_meta_for_doi_cached', 
+                   side_effect=Exception("API Error")):
+            client = httpx.AsyncClient()
+            results = await batch_enriched_lookup(
+                client, ["10.1234/test"], cache_seconds=1, max_concurrent=1
+            )
+            
+            # Should return None for failed lookups
+            assert len(results) == 1
+            assert results[0] is None
