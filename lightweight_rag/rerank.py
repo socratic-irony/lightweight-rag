@@ -3,6 +3,8 @@
 import math
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from typing import Dict, List, Optional
 
 # Optional imports for semantic reranking
@@ -15,6 +17,10 @@ except ImportError:
 
 
 _model = None
+_model_name = None
+_model_lock = Lock()
+_embedding_cache: Dict[str, "np.ndarray"] = {}
+_cache_lock = Lock()
 
 
 def tokenize_for_rerank(text: str) -> List[str]:
@@ -126,6 +132,31 @@ def heuristic_rerank(
     return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
 
+def _normalize(vector: "np.ndarray") -> "np.ndarray":
+    norm = float(np.linalg.norm(vector))
+    if norm == 0.0:
+        return vector
+    return vector / norm
+
+
+def _load_model(model_name: str) -> Optional["SentenceTransformer"]:
+    global _model, _model_name
+
+    if SentenceTransformer is None:
+        return None
+
+    with _model_lock:
+        if _model is None or _model_name != model_name:
+            try:
+                _model = SentenceTransformer(model_name)
+                _model_name = model_name
+            except Exception as exc:
+                print(f"Failed to load sentence transformer model: {exc}")
+                _model = None
+                _model_name = None
+        return _model
+
+
 def embed_texts(
     texts: List[str], model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
 ) -> Optional["np.ndarray"]:
@@ -134,26 +165,69 @@ def embed_texts(
 
     Lazy loads the model to keep cold-start times low.
     """
-    global _model
 
     if SentenceTransformer is None or np is None:
         return None
 
-    if _model is None:
-        try:
-            _model = SentenceTransformer(model_name, device="cpu")
-        except Exception as e:
-            print(f"Failed to load sentence transformer model: {e}")
-            return None
+    model = _load_model(model_name)
+    if model is None:
+        return None
 
     try:
-        embeddings = _model.encode(texts, convert_to_numpy=True)
+        embeddings = model.encode(texts, convert_to_numpy=True)
         # Normalize for cosine similarity
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        norms[norms == 0.0] = 1.0
         return embeddings / norms
-    except Exception as e:
-        print(f"Failed to encode texts: {e}")
+    except Exception as exc:
+        print(f"Failed to encode texts: {exc}")
         return None
+
+
+def _encode_single_text(model: "SentenceTransformer", text: str) -> "np.ndarray":
+    embedding = model.encode([text], convert_to_numpy=True)[0]
+    return _normalize(embedding)
+
+
+def _chunk_embeddings(
+    texts: List[str],
+    model: "SentenceTransformer",
+    max_workers: Optional[int],
+) -> Optional[List["np.ndarray"]]:
+    embeddings: List[Optional["np.ndarray"]] = [None] * len(texts)
+    uncached = []
+
+    with _cache_lock:
+        for idx, text in enumerate(texts):
+            cached = _embedding_cache.get(text)
+            if cached is not None:
+                embeddings[idx] = cached
+            else:
+                uncached.append((idx, text))
+
+    if uncached:
+        suggested = min(32, (len(uncached) or 1))
+        worker_count = max(1, max_workers or suggested)
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_idx = {
+                executor.submit(_encode_single_text, model, text): (idx, text)
+                for idx, text in uncached
+            }
+            for future in as_completed(future_to_idx):
+                idx, text = future_to_idx[future]
+                try:
+                    embedding = future.result()
+                except Exception as exc:
+                    print(f"Failed to encode text during semantic rerank: {exc}")
+                    return None
+                embeddings[idx] = embedding
+                with _cache_lock:
+                    _embedding_cache[text] = embedding
+
+    if any(embedding is None for embedding in embeddings):
+        return None
+
+    return embeddings  # type: ignore[return-value]
 
 
 def semantic_rerank(
@@ -161,6 +235,7 @@ def semantic_rerank(
     texts: List[str],
     scores: List[float],
     model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+    max_workers: Optional[int] = None,
 ) -> List[float]:
     """
     Rerank using semantic similarity.
@@ -171,18 +246,26 @@ def semantic_rerank(
     if not texts or SentenceTransformer is None:
         return scores
 
-    # Encode query and texts
-    all_texts = [query] + texts
-    embeddings = embed_texts(all_texts, model_name)
+    if SentenceTransformer is None or np is None:
+        return scores
 
-    if embeddings is None:
+    model = _load_model(model_name)
+    if model is None:
+        return scores
+
+    query_embedding = embed_texts([query], model_name)
+    if query_embedding is None:
+        return scores
+
+    chunk_embeddings = _chunk_embeddings(texts, model, max_workers)
+    if chunk_embeddings is None or not chunk_embeddings:
         return scores
 
     # Calculate cosine similarities (already normalized)
-    query_emb = embeddings[0:1]  # Shape (1, dim)
-    text_embs = embeddings[1:]  # Shape (n, dim)
+    query_emb = query_embedding[0]
+    text_embs = np.vstack(chunk_embeddings)
 
-    similarities = np.dot(text_embs, query_emb.T).flatten()  # Shape (n,)
+    similarities = text_embs.dot(query_emb).flatten()
 
     # Combine BM25 and semantic scores
     # Simple linear combination - can be tuned
