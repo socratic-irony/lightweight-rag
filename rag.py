@@ -8,6 +8,7 @@ import os
 import platform
 import asyncio
 import json
+import time
 from dotenv import load_dotenv
 
 from lightweight_rag.cli import parse_args_and_load_config
@@ -26,7 +27,9 @@ async def main():
     cfg, query = parse_args_and_load_config()
     
     # Run the RAG pipeline
+    start_time = time.perf_counter()
     results = await run_rag_pipeline(cfg, query)
+    total_time = time.perf_counter() - start_time
     
     # Display results
     print("\n=== Top Results ===")
@@ -34,6 +37,8 @@ async def main():
         print(json.dumps(results, indent=2, ensure_ascii=False))
     else:
         print(json.dumps(results, ensure_ascii=False))
+
+    print(f"Total time: {total_time:.2f}s")
 
 
 if __name__ == "__main__":

@@ -26,6 +26,9 @@ MANIFEST_CACHE = CACHE_DIR / "manifest.json"
 TOKENIZED_CACHE = CACHE_DIR / "tokenized.pkl.gz"
 DOI_CACHE = CACHE_DIR / "dois.json"
 
+MANIFEST_META_KEY = "__meta__"
+CHUNKING_HASH_KEY = "chunking_config_hash"
+
 
 # -------------------------
 # Tokenization
@@ -274,11 +277,26 @@ def compute_text_hash(text_content: str) -> str:
     return hashlib.sha256(text_content.encode("utf-8")).hexdigest()
 
 
+def _json_default(value: Any) -> str:
+    """Fallback serializer for non-JSON-native config values."""
+
+    return str(value)
+
+
+def compute_chunking_config_hash(chunking_config: Optional[Dict[str, Any]]) -> str:
+    """Create a stable hash for the chunking portion of the config."""
+
+    normalized = json.dumps(chunking_config or {}, sort_keys=True, default=_json_default)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def manifest_for_dir_with_text_hash(
-    pdf_dir: Path, corpus: Optional[List[Chunk]] = None
+    pdf_dir: Path,
+    corpus: Optional[List[Chunk]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Generate manifest with file stats and text hashes for better cache invalidation."""
-    manifest = {}
+    """Generate manifest with file stats, text hashes, and optional metadata."""
+    manifest: Dict[str, Any] = {}
 
     # Create a mapping of file paths to text content from corpus
     text_by_file = {}
@@ -300,6 +318,9 @@ def manifest_for_dir_with_text_hash(
             entry["text_hash"] = compute_text_hash(text_by_file[file_path])
 
         manifest[file_path] = entry
+
+    if metadata:
+        manifest[MANIFEST_META_KEY] = metadata
 
     return manifest
 
@@ -328,9 +349,18 @@ def detect_changed_files(
         cached_files = {Path(f["path"]) for f in cached_manifest["files"]}
         cached_file_info = {Path(f["path"]): f for f in cached_manifest["files"]}
     else:
-        # New format: {"/path/to/file.pdf": {"size": ..., "mtime": ...}}
-        cached_files = {Path(f) for f in cached_manifest.keys()}
-        cached_file_info = {Path(f): info for f, info in cached_manifest.items()}
+        # New format: {"/path/to/file.pdf": {"size": ..., "mtime": ...}, "__meta__": {...}}
+        cached_files = set()
+        cached_file_info: Dict[Path, Any] = {}
+        for key, info in cached_manifest.items():
+            key_str = str(key)
+            if key_str.startswith("__"):
+                continue
+            if not key_str.lower().endswith(".pdf"):
+                continue
+            path_obj = Path(key_str)
+            cached_files.add(path_obj)
+            cached_file_info[path_obj] = info
 
     # Find new and changed files
     for pdf_file in current_files:

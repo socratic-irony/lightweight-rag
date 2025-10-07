@@ -5,14 +5,14 @@ paths:
 
 indexing:
   page_split: "sliding"           # "page" | "sentence" | "sliding"
-  window_chars: 300               # used when page_split == "sliding" (optimal for precision)
-  overlap_chars: 60               # used when page_split == "sliding" (20% overlap)
+  window_chars: 600               # used when page_split == "sliding" (optimal for precision)
+  overlap_chars: 80               # used when page_split == "sliding" (20% overlap)
   text_quality_check: true        # Enable text quality validation for PDFs
-  min_readable_ratio: 0.7         # Minimum ratio of readable characters (0.0-1.0)
+  min_readable_ratio: 0.5         # Minimum ratio of readable characters (0.0-1.0)
 
 bm25:
-  k1: 1.4                         # Term frequency saturation (tuned for sliding windows)
-  b: 0.6                          # Document length normalization (tuned for shorter chunks)
+  k1: 1.5                         # Term frequency saturation (tuned for sliding windows)
+  b: 0.75                         # Document length normalization (tuned for shorter chunks)
   build_top_k: 300                # candidate pool from lexical stage (pre-rerank)
   pool_size: 200                  # candidates from lexical stage before fusion/rerank
   token_pattern: "[A-Za-z0-9]+"
@@ -85,4 +85,4 @@ performance:
   api_semaphore_size: 5      # Max concurrent API calls
   pdf_thread_workers: null   # None = auto (num_cores), or set manually
   deterministic: true        # Enable deterministic tie-breaking
-  numpy_seed: 42            # Seed for numpy random operations
+  numpy_seed: 42             # Seed for numpy random operations

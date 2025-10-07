@@ -37,8 +37,11 @@ class BiblioEntry:
         self.end_page: Optional[int] = pages.get("end") if isinstance(pages, dict) else None
 
 
-def load_biblio_index(path: str | Path) -> Dict[str, BiblioEntry]:
+def load_biblio_index(path: str | Path | None) -> Dict[str, BiblioEntry]:
     """Load the bibliography index JSON and return a map by lowercased basename."""
+    if not path:
+        return {}
+
     p = Path(path)
     if not p.exists():
         return {}
@@ -61,8 +64,11 @@ def load_biblio_index(path: str | Path) -> Dict[str, BiblioEntry]:
     return out
 
 
-def load_biblio_index_by_doi(path: str | Path) -> Dict[str, BiblioEntry]:
+def load_biblio_index_by_doi(path: str | Path | None) -> Dict[str, BiblioEntry]:
     """Load the bibliography index JSON and return a map by DOI (lowercased)."""
+    if not path:
+        return {}
+
     p = Path(path)
     if not p.exists():
         return {}

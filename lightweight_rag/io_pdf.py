@@ -426,6 +426,7 @@ def _try_load_cache(
     changed_files: List[Path],
     removed_files: List[Path],
     cached_corpus: Optional[List[Chunk]],
+    chunking_config_hash: Optional[str],
 ) -> Optional[List[Chunk]]:
     """Try to load and enrich cached corpus if no files need processing.
     
@@ -437,7 +438,8 @@ def _try_load_cache(
         changed_files: List of changed files detected
         removed_files: List of removed files detected
         cached_corpus: Previously cached corpus
-        
+        chunking_config_hash: Hash of the active chunking configuration
+
     Returns:
         Enriched corpus if cache is valid, None if reprocessing needed
     """
@@ -447,6 +449,7 @@ def _try_load_cache(
         save_corpus_to_cache,
         save_manifest,
         CACHE_DIR,
+        CHUNKING_HASH_KEY,
     )
     
     files_to_process = new_files + changed_files
@@ -508,7 +511,12 @@ def _try_load_cache(
         
         # Persist cache and manifest, write diagnostics
         save_corpus_to_cache(updated_corpus)
-        current_manifest = manifest_for_dir_with_text_hash(pdf_dir, updated_corpus)
+        metadata = {CHUNKING_HASH_KEY: chunking_config_hash} if chunking_config_hash else None
+        current_manifest = manifest_for_dir_with_text_hash(
+            pdf_dir,
+            updated_corpus,
+            metadata,
+        )
         save_manifest(current_manifest)
         
         diagnostics = {
@@ -848,6 +856,7 @@ def _save_corpus_cache(
     changed_files: List[Path],
     removed_files: List[Path],
     biblio_map: dict,
+    chunking_config_hash: Optional[str],
 ) -> None:
     """Save corpus to cache with manifest and diagnostics.
     
@@ -862,17 +871,20 @@ def _save_corpus_cache(
         changed_files: List of changed files
         removed_files: List of removed files
         biblio_map: Bibliography index map
+        chunking_config_hash: Hash of the chunking configuration used for this corpus
     """
     from .index import (
         manifest_for_dir_with_text_hash,
         save_corpus_to_cache,
         save_manifest,
         CACHE_DIR,
+        CHUNKING_HASH_KEY,
     )
     
     # Cache the results
     save_corpus_to_cache(corpus)
-    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, corpus)
+    metadata = {CHUNKING_HASH_KEY: chunking_config_hash} if chunking_config_hash else None
+    enhanced_manifest = manifest_for_dir_with_text_hash(pdf_dir, corpus, metadata)
     save_manifest(enhanced_manifest)
 
     # Write diagnostics
@@ -1089,6 +1101,9 @@ async def build_corpus(
 ) -> List[Chunk]:
     """Build corpus by extracting text from all PDFs in directory."""
     from .index import (
+        CHUNKING_HASH_KEY,
+        MANIFEST_META_KEY,
+        compute_chunking_config_hash,
         detect_changed_files,
         load_corpus_from_cache,
         load_manifest,
@@ -1102,12 +1117,31 @@ async def build_corpus(
     # Check cache and detect changes
     cached_corpus = load_corpus_from_cache()
     cached_manifest = load_manifest()
+
+    chunking_config_hash = compute_chunking_config_hash(chunking_config)
+    cached_config_hash = None
+    if isinstance(cached_manifest, dict):
+        meta_section = cached_manifest.get(MANIFEST_META_KEY)
+        if isinstance(meta_section, dict):
+            cached_config_hash = meta_section.get(CHUNKING_HASH_KEY)
+
+    config_changed = cached_manifest is not None and cached_config_hash != chunking_config_hash
+
     new_files, changed_files, removed_files = detect_changed_files(pdf_dir, cached_manifest)
-    
+
+    if config_changed:
+        if cached_config_hash is None:
+            print("Chunking configuration hash missing in cache; forcing rebuild.")
+        else:
+            print("Chunking configuration changed; forcing corpus rebuild.")
+        new_files = []
+        changed_files = list(pdf_files)
+
     # Try to use cached corpus if no processing needed
     cached_result = _try_load_cache(
         pdf_files, pdf_dir, citation_config,
-        new_files, changed_files, removed_files, cached_corpus
+        new_files, changed_files, removed_files, cached_corpus,
+        chunking_config_hash,
     )
     if cached_result is not None:
         return cached_result
@@ -1152,7 +1186,8 @@ async def build_corpus(
     _save_corpus_cache(
         final_corpus, pdf_dir, pdf_files,
         matched_via_index, matched_via_doi, dropped_unknown,
-        new_files, changed_files, removed_files, biblio_map
+        new_files, changed_files, removed_files, biblio_map,
+        chunking_config_hash,
     )
 
     # Print final statistics
