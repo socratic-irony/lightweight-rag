@@ -4,8 +4,11 @@
 import sys
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import lightweight_rag.rerank as rerank
 from lightweight_rag.rerank import (
     tokenize_for_rerank,
     idf_weight,
@@ -183,6 +186,145 @@ class TestPhraseBoost:
         score = phrase_boost(query, doc_text)
         
         assert score > 0
+
+
+class TestHeuristicRerank:
+    """Integration tests for heuristic reranking."""
+
+    def test_heuristic_rerank_prioritizes_rich_matches(self):
+        """Candidates with better coverage should bubble to the top."""
+        candidates = [
+            {"text": "Machine learning fundamentals", "bm25": 0.2, "rank": 0, "index": 0},
+            {"text": "Chemistry overview", "bm25": 0.9, "rank": 1, "index": 1},
+        ]
+
+        reranked = rerank.heuristic_rerank(
+            "machine learning",
+            candidates,
+            df={"machine": 2, "learning": 3},
+            N=100,
+            alpha=0.7,
+            beta=0.2,
+            gamma=0.1,
+        )
+
+        assert reranked[0]["index"] == 0
+        assert all("rerank_score" in candidate for candidate in reranked)
+
+    def test_heuristic_rerank_preserves_order_for_empty_query(self):
+        """Empty queries should short-circuit and leave candidates untouched."""
+        candidates = [
+            {"text": "Item A", "bm25": 0.5, "rank": 0, "index": 0},
+            {"text": "Item B", "bm25": 0.4, "rank": 1, "index": 1},
+        ]
+
+        reranked = rerank.heuristic_rerank("", candidates)
+
+        assert reranked is candidates
+
+
+class TestEmbeddingHelpers:
+    """Tests for embedding helpers that back semantic reranking."""
+
+    def test_embed_texts_normalizes_vectors(self, monkeypatch):
+        """Embeddings should be L2-normalized even with zero vectors present."""
+
+        class DummyModel:
+            def encode(self, texts, convert_to_numpy=True):
+                return np.array([[3.0, 4.0], [0.0, 0.0]], dtype=float)
+
+        monkeypatch.setattr(rerank, "SentenceTransformer", object)
+        monkeypatch.setattr(rerank, "np", np)
+        monkeypatch.setattr(rerank, "_load_model", lambda name: DummyModel())
+
+        embeddings = rerank.embed_texts(["alpha", "beta"])
+
+        assert embeddings is not None
+        assert np.isclose(np.linalg.norm(embeddings[0]), 1.0)
+        assert np.array_equal(embeddings[1], np.zeros(2, dtype=float))
+
+    def test_embed_texts_handles_encode_failures(self, monkeypatch):
+        """Failures while encoding should result in a graceful fallback."""
+
+        class FailingModel:
+            def encode(self, texts, convert_to_numpy=True):  # noqa: D401
+                raise RuntimeError("encode boom")
+
+        monkeypatch.setattr(rerank, "SentenceTransformer", object)
+        monkeypatch.setattr(rerank, "np", np)
+        monkeypatch.setattr(rerank, "_load_model", lambda name: FailingModel())
+
+        assert rerank.embed_texts(["alpha"]) is None
+
+    def test_chunk_embeddings_uses_cache_and_executor(self, monkeypatch):
+        """Chunk encoding should reuse cached vectors and populate new ones."""
+
+        monkeypatch.setattr(
+            rerank,
+            "_embedding_cache",
+            {"cached": np.array([1.0, 0.0], dtype=float)},
+        )
+
+        encoded = []
+
+        def fake_encode(model, text):
+            encoded.append(text)
+            return np.array([float(len(text)), 0.0], dtype=float)
+
+        monkeypatch.setattr(rerank, "_encode_single_text", fake_encode)
+
+        results = rerank._chunk_embeddings(["cached", "fresh"], object(), max_workers=1)
+
+        assert results is not None
+        assert len(results) == 2
+        assert encoded == ["fresh"]
+        assert np.array_equal(rerank._embedding_cache["fresh"], np.array([5.0, 0.0]))
+
+
+class TestSemanticRerank:
+    """Semantic reranking combinations and fallbacks."""
+
+    def test_semantic_rerank_combines_scores(self, monkeypatch):
+        """Semantic scores should mix with normalized lexical scores."""
+
+        class DummyModel:
+            pass
+
+        def fake_embed_texts(texts, model_name):
+            if len(texts) == 1:
+                return np.array([[1.0, 0.0]], dtype=float)
+            return np.vstack([np.array([1.0, 0.0], dtype=float) for _ in texts])
+
+        def fake_chunk_embeddings(texts, model, max_workers):
+            return [
+                np.array([1.0, 0.0], dtype=float),
+                np.array([0.0, 1.0], dtype=float),
+            ]
+
+        monkeypatch.setattr(rerank, "SentenceTransformer", object)
+        monkeypatch.setattr(rerank, "np", np)
+        monkeypatch.setattr(rerank, "_load_model", lambda name: DummyModel())
+        monkeypatch.setattr(rerank, "embed_texts", fake_embed_texts)
+        monkeypatch.setattr(rerank, "_chunk_embeddings", fake_chunk_embeddings)
+
+        combined = rerank.semantic_rerank(
+            "query",
+            ["first", "second"],
+            [0.2, 0.6],
+            model_name="dummy",
+            max_workers=1,
+        )
+
+        assert combined != [0.2, 0.6]
+        assert len(combined) == 2
+        assert combined[1] > combined[0]
+
+    def test_semantic_rerank_returns_original_when_unavailable(self):
+        """Missing semantic model should return the original scores."""
+
+        original = [0.5, 0.7]
+
+        assert rerank.semantic_rerank("query", ["text"], original) is original
     
     def test_phrase_boost_no_match(self):
         """Test phrase boost with no match."""
