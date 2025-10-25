@@ -135,13 +135,13 @@ def normalize_text(s: str) -> str:
 
 def split_into_sentences(text: str) -> List[str]:
     """
-    Simple sentence splitter using regex patterns.
+    Simple sentence splitter using regex patterns, preserving sentence-ending punctuation.
 
     Args:
         text: Input text to split
 
     Returns:
-        List of sentences
+        List of sentences with their ending punctuation
     """
     # Simple sentence boundaries - avoid complex lookbehind patterns
     # First replace common abbreviations to protect them
@@ -151,23 +151,33 @@ def split_into_sentences(text: str) -> List[str]:
         text,
     )
 
-    # Split on sentence endings
-    sentences = re.split(r"[.!?]+\s+", text)
+    # Split on sentence endings, keeping the punctuation with each sentence
+    # Use lookahead to split after punctuation + whitespace
+    sentences = re.split(r"([.!?]+)\s+", text)
 
-    # Restore the dots in abbreviations
-    sentences = [s.replace("~DOT~", ".").strip() for s in sentences]
+    # Rejoin sentences with their punctuation
+    result = []
+    for i in range(0, len(sentences) - 1, 2):
+        if i + 1 < len(sentences):
+            sentence = sentences[i] + sentences[i + 1]
+            sentence = sentence.replace("~DOT~", ".").strip()
+            if sentence and len(sentence.strip()) > 10:
+                result.append(sentence)
 
-    # Filter out empty sentences and very short ones
-    sentences = [s for s in sentences if s and len(s.strip()) > 10]
+    # Handle the last sentence if it doesn't have trailing punctuation
+    if len(sentences) % 2 == 1:
+        last = sentences[-1].replace("~DOT~", ".").strip()
+        if last and len(last.strip()) > 10:
+            result.append(last)
 
-    return sentences
+    return result
 
 
 def create_sliding_windows(
     text: str, window_chars: int = 300, overlap_chars: int = 50
 ) -> List[str]:
     """
-    Create sliding windows of text with overlap.
+    Create sliding windows of text with overlap, respecting sentence boundaries.
 
     Args:
         text: Input text
@@ -180,64 +190,131 @@ def create_sliding_windows(
     if len(text) <= window_chars:
         return [text]
 
-    words = text.split()
-    if not words:
+    # Split text into sentences to respect sentence boundaries
+    sentences = split_into_sentences(text)
+    if not sentences:
         return []
 
-    windows: List[str] = []
-    current_words: List[str] = []
-    current_length = 0
-    index = 0
+    # If we only got one "sentence" and it's very long, it likely means
+    # the text doesn't have proper sentence boundaries. In this case,
+    # fall back to word-based chunking to avoid returning a single huge chunk.
+    if len(sentences) == 1 and len(sentences[0]) > window_chars:
+        # Fall back to word-based chunking for non-sentence text
+        words = text.split()
+        if not words:
+            return []
 
-    while index < len(words):
-        word = words[index]
-        word_length = len(word)
-        # Include a space when appending additional words
-        additional_length = word_length if not current_words else word_length + 1
+        windows: List[str] = []
+        current_words: List[str] = []
+        current_length = 0
+        index = 0
 
-        if current_length + additional_length <= window_chars or not current_words:
-            current_words.append(word)
-            current_length += additional_length
-            index += 1
-        else:
+        while index < len(words):
+            word = words[index]
+            word_length = len(word)
+            additional_length = word_length if not current_words else word_length + 1
+
+            if current_length + additional_length <= window_chars or not current_words:
+                current_words.append(word)
+                current_length += additional_length
+                index += 1
+            else:
+                window_text = " ".join(current_words).strip()
+                if window_text:
+                    windows.append(window_text)
+
+                if overlap_chars > 0 and current_words:
+                    overlap_words: List[str] = []
+                    overlap_length = 0
+                    j = len(current_words) - 1
+                    while j >= 0 and overlap_length < overlap_chars:
+                        token = current_words[j]
+                        token_length = len(token) if not overlap_words else len(token) + 1
+                        overlap_length += token_length
+                        overlap_words.insert(0, token)
+                        j -= 1
+
+                    overlap_total_length = sum(len(tok) for tok in overlap_words) + max(
+                        len(overlap_words) - 1, 0
+                    )
+                    next_word_length = word_length if not overlap_words else word_length + 1
+
+                    if overlap_total_length + next_word_length > window_chars and overlap_words:
+                        current_words = []
+                        current_length = 0
+                    else:
+                        current_words = overlap_words
+                        current_length = sum(len(tok) for tok in current_words) + max(
+                            len(current_words) - 1, 0
+                        )
+                else:
+                    current_words = []
+                    current_length = 0
+
+        if current_words:
             window_text = " ".join(current_words).strip()
             if window_text:
                 windows.append(window_text)
 
-            if overlap_chars > 0 and current_words:
-                overlap_words: List[str] = []
+        return [w for w in windows if len(w.strip()) > 20]
+
+    # Sentence-based chunking (the primary/correct path)
+    windows: List[str] = []
+    current_sentences: List[str] = []
+    current_length = 0
+    index = 0
+
+    while index < len(sentences):
+        sentence = sentences[index]
+        sentence_length = len(sentence)
+        # Include a space when appending additional sentences
+        additional_length = sentence_length if not current_sentences else sentence_length + 1
+
+        if current_length + additional_length <= window_chars or not current_sentences:
+            current_sentences.append(sentence)
+            current_length += additional_length
+            index += 1
+        else:
+            window_text = " ".join(current_sentences).strip()
+            if window_text:
+                windows.append(window_text)
+
+            if overlap_chars > 0 and current_sentences:
+                overlap_sentences: List[str] = []
                 overlap_length = 0
-                j = len(current_words) - 1
+                j = len(current_sentences) - 1
                 while j >= 0 and overlap_length < overlap_chars:
-                    token = current_words[j]
-                    token_length = len(token) if not overlap_words else len(token) + 1
-                    overlap_length += token_length
-                    overlap_words.insert(0, token)
+                    sent = current_sentences[j]
+                    sent_length = len(sent) if not overlap_sentences else len(sent) + 1
+                    overlap_length += sent_length
+                    overlap_sentences.insert(0, sent)
                     j -= 1
 
-                # Check if next word would fit with overlap words
-                # If not (e.g., word is too long), skip overlap to avoid infinite loop
-                overlap_total_length = sum(len(tok) for tok in overlap_words) + max(
-                    len(overlap_words) - 1, 0
+                # Check if next sentence would fit with overlap sentences
+                # If not (e.g., sentence is too long), skip overlap to avoid infinite loop
+                overlap_total_length = sum(len(s) for s in overlap_sentences) + max(
+                    len(overlap_sentences) - 1, 0
                 )
-                next_word_length = word_length if not overlap_words else word_length + 1
+                next_sentence_length = (
+                    sentence_length if not overlap_sentences else sentence_length + 1
+                )
 
-                if overlap_total_length + next_word_length > window_chars and overlap_words:
-                    # Word won't fit even after overlap, reset completely
-                    current_words = []
+                if overlap_total_length + next_sentence_length > window_chars and overlap_sentences:
+                    # Sentence won't fit even after overlap, reset completely
+                    current_sentences = []
                     current_length = 0
                 else:
-                    current_words = overlap_words
-                    current_length = sum(len(tok) for tok in current_words) + max(
-                        len(current_words) - 1, 0
+                    current_sentences = overlap_sentences
+                    current_length = sum(len(s) for s in current_sentences) + max(
+                        len(current_sentences) - 1, 0
                     )
             else:
-                current_words = []
+                current_sentences = []
                 current_length = 0
 
-    # Append any remaining words as the final window
-    if current_words:
-        window_text = " ".join(current_words).strip()
+    # Append any remaining sentences as the final window
+    if current_sentences:
+        window_text = " ".join(current_sentences).strip()
         if window_text:
             windows.append(window_text)
 
@@ -357,10 +434,10 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
 
 def _discover_pdf_files(pdf_dir: Path) -> List[Path]:
     """Discover all PDF files in directory.
-    
+
     Args:
         pdf_dir: Directory containing PDF files
-        
+
     Returns:
         List of Path objects for PDF files
     """
@@ -370,25 +447,27 @@ def _discover_pdf_files(pdf_dir: Path) -> List[Path]:
     return pdf_files
 
 
-def _enrich_chunk_with_bibliography(chunk: Chunk, biblio_map: dict, doi_map: dict) -> tuple[Chunk, bool]:
+def _enrich_chunk_with_bibliography(
+    chunk: Chunk, biblio_map: dict, doi_map: dict
+) -> tuple[Chunk, bool]:
     """Enrich a single chunk with bibliography metadata.
-    
+
     Args:
         chunk: Chunk to enrich
         biblio_map: Bibliography index by filename
         doi_map: Bibliography index by DOI
-        
+
     Returns:
         Tuple of (enriched_chunk, was_enriched)
     """
     meta = chunk.meta
     enriched = False
-    
+
     key = os.path.basename(meta.source).lower()
     entry = biblio_map.get(key)
     if not entry and meta.doi:
         entry = doi_map.get((meta.doi or "").lower())
-    
+
     if entry:
         authors_fmt = []
         for a in entry.authors or []:
@@ -398,7 +477,7 @@ def _enrich_chunk_with_bibliography(chunk: Chunk, biblio_map: dict, doi_map: dic
                 authors_fmt.append(f"{fam}, {giv}")
             elif fam:
                 authors_fmt.append(fam)
-        
+
         if not meta.title:
             meta.title = entry.title
         if not meta.authors:
@@ -414,7 +493,7 @@ def _enrich_chunk_with_bibliography(chunk: Chunk, biblio_map: dict, doi_map: dic
         if not meta.citekey and entry.citekey:
             meta.citekey = entry.citekey
         enriched = True
-    
+
     return chunk, enriched
 
 
@@ -429,7 +508,7 @@ def _try_load_cache(
     chunking_config_hash: Optional[str],
 ) -> Optional[List[Chunk]]:
     """Try to load and enrich cached corpus if no files need processing.
-    
+
     Args:
         pdf_files: All PDF files in directory
         pdf_dir: Directory containing PDFs
@@ -444,20 +523,20 @@ def _try_load_cache(
         Enriched corpus if cache is valid, None if reprocessing needed
     """
     from .index import (
+        CACHE_DIR,
+        CHUNKING_HASH_KEY,
         filter_corpus_by_files,
         manifest_for_dir_with_text_hash,
         save_corpus_to_cache,
         save_manifest,
-        CACHE_DIR,
-        CHUNKING_HASH_KEY,
     )
-    
+
     files_to_process = new_files + changed_files
-    
+
     # If no files need processing, enrich cached corpus with bibliography (and filter) and return
     if not files_to_process and cached_corpus:
         print(f"Loaded {len(cached_corpus)} chunks from cache (no changes detected)")
-        
+
         # Load bibliography maps if configured
         biblio_map = {}
         doi_map = {}
@@ -469,17 +548,18 @@ def _try_load_cache(
                 try:
                     biblio_map = load_biblio_index(idx_path)
                     from .io_biblio import load_biblio_index_by_doi as _load_doi
+
                     doi_map = _load_doi(idx_path)
                 except Exception:
                     biblio_map = {}
                     doi_map = {}
             prefer_biblio = citation_config.get("prefer_bibliography", True)
             drop_unknown = citation_config.get("drop_unknown", False)
-        
+
         # Track per-document enrichment and drops
         matched_docs = set()
         dropped_docs = set()
-        
+
         # Enrich cached corpus
         updated_corpus: List[Chunk] = []
         for chunk in cached_corpus:
@@ -490,7 +570,7 @@ def _try_load_cache(
                         matched_docs.add(os.path.basename(str(chunk.meta.source)).lower())
                     except Exception:
                         pass
-            
+
             # Drop if missing required metadata
             if drop_unknown and (not chunk.meta.authors or chunk.meta.year is None):
                 try:
@@ -498,9 +578,9 @@ def _try_load_cache(
                 except Exception:
                     pass
                 continue
-            
+
             updated_corpus.append(chunk)
-        
+
         # Filter out removed files if any
         if removed_files:
             keep_files = [f for f in pdf_files if f not in removed_files]
@@ -508,7 +588,7 @@ def _try_load_cache(
             print(
                 f"Removed {len(removed_files)} files from cache, {len(updated_corpus)} chunks remaining"
             )
-        
+
         # Persist cache and manifest, write diagnostics
         save_corpus_to_cache(updated_corpus)
         metadata = {CHUNKING_HASH_KEY: chunking_config_hash} if chunking_config_hash else None
@@ -518,7 +598,7 @@ def _try_load_cache(
             metadata,
         )
         save_manifest(current_manifest)
-        
+
         diagnostics = {
             "total_pdfs": len(pdf_files),
             "processed_pdfs": 0,
@@ -532,16 +612,18 @@ def _try_load_cache(
         }
         try:
             import json
+
             from .index import CACHE_DIR as _C
+
             diag_path = _C / "warmup_diagnostics.json"
             diag_path.parent.mkdir(parents=True, exist_ok=True)
             with open(diag_path, "w", encoding="utf-8") as f:
                 json.dump(diagnostics, f)
         except Exception as e:
             print(f"Failed to write diagnostics: {e}")
-        
+
         return updated_corpus
-    
+
     return None
 
 
@@ -552,23 +634,24 @@ async def _enrich_citations_parallel(
     max_concurrent_api: int,
 ) -> Dict[str, DocMeta]:
     """Batch fetch and enrich metadata for DOIs in parallel.
-    
+
     Args:
         dois_to_fetch: List of DOIs to fetch metadata for
         citation_config: Configuration for citation sources
         cache_seconds: Cache duration in seconds
         max_concurrent_api: Maximum concurrent API requests
-        
+
     Returns:
         Dictionary mapping DOI to enriched metadata
     """
     import httpx
+
     from .cite import batch_enriched_lookup
-    
+
     doi_meta_map = {}
     if not dois_to_fetch:
         return doi_meta_map
-    
+
     print(f"Fetching metadata for {len(dois_to_fetch)} DOIs...")
 
     # Use configuration or defaults
@@ -595,7 +678,7 @@ async def _enrich_citations_parallel(
         for doi, enriched_meta in zip(dois_to_fetch, enriched_results):
             if enriched_meta:
                 doi_meta_map[doi] = enriched_meta
-    
+
     return doi_meta_map
 
 
@@ -606,19 +689,19 @@ def _get_metadata_from_bibliography(
     citation_config: Optional[dict],
 ) -> tuple[DocMeta, int]:
     """Get metadata from bibliography index or extract DOI.
-    
+
     Args:
         pdf_basename: PDF filename
         pages: Extracted page data
         biblio_map: Bibliography index
         citation_config: Citation configuration
-        
+
     Returns:
         Tuple of (DocMeta, matched_via_index_count)
     """
     pdf_key = pdf_basename.lower()
     prefer_biblio = citation_config.get("prefer_bibliography", True) if citation_config else True
-    
+
     # Check bibliography by filename
     biblio = biblio_map.get(pdf_key)
     if biblio and prefer_biblio:
@@ -630,25 +713,31 @@ def _get_metadata_from_bibliography(
                 authors_fmt.append(f"{fam}, {giv}")
             elif fam:
                 authors_fmt.append(fam)
-        return DocMeta(
-            title=biblio.title,
-            authors=authors_fmt,
-            year=biblio.year,
-            doi=biblio.doi,
-            source=pdf_basename,
-            start_page=biblio.start_page,
-            end_page=biblio.end_page,
-            citekey=biblio.citekey,
-        ), 1
-    
+        return (
+            DocMeta(
+                title=biblio.title,
+                authors=authors_fmt,
+                year=biblio.year,
+                doi=biblio.doi,
+                source=pdf_basename,
+                start_page=biblio.start_page,
+                end_page=biblio.end_page,
+                citekey=biblio.citekey,
+            ),
+            1,
+        )
+
     # Look for DOI in first 2 pages
     first_pages_text = " ".join([p["text"] for p in pages[:2]])
     doi = find_doi_in_text(first_pages_text)
-    
+
     # Try DOI lookup in bibliography
     if prefer_biblio and (not biblio) and doi and citation_config:
         from .io_biblio import load_biblio_index_by_doi as _load_doi
-        doi_map = _load_doi(citation_config.get("bibliography_index_path")) if citation_config else {}
+
+        doi_map = (
+            _load_doi(citation_config.get("bibliography_index_path")) if citation_config else {}
+        )
         by_doi = doi_map.get(doi.lower()) if doi else None
         if by_doi:
             authors_fmt = []
@@ -659,17 +748,20 @@ def _get_metadata_from_bibliography(
                     authors_fmt.append(f"{fam}, {giv}")
                 elif fam:
                     authors_fmt.append(fam)
-            return DocMeta(
-                title=by_doi.title,
-                authors=authors_fmt,
-                year=by_doi.year,
-                doi=doi,
-                source=pdf_basename,
-                start_page=by_doi.start_page,
-                end_page=by_doi.end_page,
-                citekey=by_doi.citekey,
-            ), 1
-    
+            return (
+                DocMeta(
+                    title=by_doi.title,
+                    authors=authors_fmt,
+                    year=by_doi.year,
+                    doi=doi,
+                    source=pdf_basename,
+                    start_page=by_doi.start_page,
+                    end_page=by_doi.end_page,
+                    citekey=by_doi.citekey,
+                ),
+                1,
+            )
+
     return DocMeta(title=None, authors=[], year=None, doi=doi, source=pdf_basename), 0
 
 
@@ -683,7 +775,7 @@ def _create_chunks_from_pages(
     drop_unknown: bool,
 ) -> tuple[List[Chunk], bool]:
     """Create chunks from PDF pages.
-    
+
     Args:
         pages: Extracted page data
         meta: Document metadata
@@ -692,12 +784,12 @@ def _create_chunks_from_pages(
         doc_title: Document title for context
         chunking_config: Chunking configuration
         drop_unknown: Whether to drop docs with missing metadata
-        
+
     Returns:
         Tuple of (chunks_list, was_dropped)
     """
     chunks = []
-    
+
     for page_data in pages:
         text = page_data["text"].strip()
 
@@ -733,7 +825,7 @@ def _create_chunks_from_pages(
                 meta=meta,
             )
             chunks.append(chunk)
-    
+
     return chunks, False
 
 
@@ -746,7 +838,7 @@ def _extract_and_chunk_pdfs(
     pdf_dir: Path,
 ) -> tuple[List[Chunk], int, int, int]:
     """Extract text from PDFs and create chunks with metadata enrichment.
-    
+
     Args:
         files_to_process_list: List of PDF files to process
         pdf_data_list: Extracted page data from PDFs
@@ -754,12 +846,12 @@ def _extract_and_chunk_pdfs(
         chunking_config: Configuration for text chunking
         doi_meta_map: Pre-fetched DOI metadata
         pdf_dir: Directory containing PDFs
-        
+
     Returns:
         Tuple of (corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown)
     """
     from .index import CACHE_DIR
-    
+
     # Load bibliography index if present
     biblio_map = {}
     drop_unknown = False
@@ -818,7 +910,7 @@ def _extract_and_chunk_pdfs(
         chunks, was_dropped = _create_chunks_from_pages(
             pages, meta, pdf_basename, doc_id, doc_title, chunking_config, drop_unknown
         )
-        
+
         if was_dropped:
             dropped_unknown_count += 1
         else:
@@ -827,6 +919,7 @@ def _extract_and_chunk_pdfs(
         # After finishing this PDF, update warmup diagnostics for UI polling
         try:
             import json as _json
+
             diag_path = CACHE_DIR / "warmup_diagnostics.json"
             diag_path.parent.mkdir(parents=True, exist_ok=True)
             diagnostics_partial = {
@@ -861,7 +954,7 @@ def _save_corpus_cache(
     chunking_config_hash: Optional[str],
 ) -> None:
     """Save corpus to cache with manifest and diagnostics.
-    
+
     Args:
         corpus: Corpus chunks to save
         pdf_dir: Directory containing PDFs
@@ -876,13 +969,13 @@ def _save_corpus_cache(
         chunking_config_hash: Hash of the chunking configuration used for this corpus
     """
     from .index import (
+        CACHE_DIR,
+        CHUNKING_HASH_KEY,
         manifest_for_dir_with_text_hash,
         save_corpus_to_cache,
         save_manifest,
-        CACHE_DIR,
-        CHUNKING_HASH_KEY,
     )
-    
+
     # Cache the results
     save_corpus_to_cache(corpus)
     metadata = {CHUNKING_HASH_KEY: chunking_config_hash} if chunking_config_hash else None
@@ -892,7 +985,9 @@ def _save_corpus_cache(
     # Write diagnostics
     diagnostics = {
         "total_pdfs": len(pdf_files),
-        "processed_pdfs": len(new_files) + len(changed_files) if new_files or changed_files else len(pdf_files),
+        "processed_pdfs": (
+            len(new_files) + len(changed_files) if new_files or changed_files else len(pdf_files)
+        ),
         "matched_via_index": matched_via_index,
         "matched_via_doi": matched_via_doi,
         "dropped_unknown": dropped_unknown,
@@ -918,12 +1013,12 @@ def _collect_dois_from_pdfs(
     citation_config: Optional[dict],
 ) -> List[str]:
     """Collect DOIs from PDF pages for batch lookup.
-    
+
     Args:
         files_to_process_list: List of PDF files to process
         pdf_data_list: Extracted page data from PDFs
         citation_config: Configuration for citation enrichment
-        
+
     Returns:
         List of DOIs found in PDFs
     """
@@ -938,15 +1033,15 @@ def _collect_dois_from_pdfs(
             except Exception:
                 biblio_map = {}
         prefer_biblio = citation_config.get("prefer_bibliography", True)
-    
+
     dois_to_fetch = []
     for pdf_file, pages in zip(files_to_process_list, pdf_data_list):
         if not pages:
             continue
-            
+
         pdf_basename = os.path.basename(str(pdf_file))
         pdf_key = pdf_basename.lower()
-        
+
         # Check if we have bibliography entry with DOI
         biblio = biblio_map.get(pdf_key)
         if biblio and prefer_biblio and biblio.doi:
@@ -957,7 +1052,7 @@ def _collect_dois_from_pdfs(
             doi = find_doi_in_text(first_pages_text)
             if doi:
                 dois_to_fetch.append(doi)
-    
+
     return dois_to_fetch
 
 
@@ -969,7 +1064,7 @@ def _log_processing_status(
     pdf_files: List[Path],
 ) -> None:
     """Log what files are being processed.
-    
+
     Args:
         files_to_process: Files that need processing
         new_files: New files detected
@@ -996,19 +1091,19 @@ def _extract_pdf_text_parallel(
     max_workers: Optional[int],
 ) -> List[List[Dict[str, Any]]]:
     """Extract text from PDFs in parallel.
-    
+
     Args:
         files_to_process_list: List of PDF files to process
         max_workers: Maximum number of worker threads
-        
+
     Returns:
         List of extracted page data for each PDF
     """
     from .performance import get_optimal_worker_count, process_with_thread_pool
-    
+
     if not files_to_process_list:
         return []
-    
+
     if max_workers is None:
         max_workers = get_optimal_worker_count()
 
@@ -1019,8 +1114,7 @@ def _extract_pdf_text_parallel(
         )
     else:
         return [
-            extract_pdf_pages(str(f))
-            for f in tqdm(files_to_process_list, desc="Processing PDFs")
+            extract_pdf_pages(str(f)) for f in tqdm(files_to_process_list, desc="Processing PDFs")
         ]
 
 
@@ -1031,25 +1125,23 @@ def _merge_with_cached_corpus(
     removed_files: List[Path],
 ) -> List[Chunk]:
     """Merge new chunks with cached chunks from unchanged files.
-    
+
     Args:
         cached_corpus: Previously cached corpus
         files_to_process: Files that were processed
         pdf_files: All PDF files in directory
         removed_files: Removed files
-        
+
     Returns:
         List of chunks from unchanged files
     """
     from .index import filter_corpus_by_files
-    
+
     if not cached_corpus or not files_to_process:
         return []
-    
+
     # Keep chunks from files that weren't processed (unchanged files)
-    unchanged_files = [
-        f for f in pdf_files if f not in files_to_process and f not in removed_files
-    ]
+    unchanged_files = [f for f in pdf_files if f not in files_to_process and f not in removed_files]
     cached_chunks_to_keep = filter_corpus_by_files(cached_corpus, unchanged_files)
     print(
         f"Keeping {len(cached_chunks_to_keep)} chunks from {len(unchanged_files)} unchanged files"
@@ -1069,7 +1161,7 @@ def _print_final_stats(
     citation_config: Optional[dict],
 ) -> None:
     """Print final processing statistics.
-    
+
     Args:
         new_corpus_chunks: Newly created chunks
         final_corpus: Final merged corpus
@@ -1141,13 +1233,18 @@ async def build_corpus(
 
     # Try to use cached corpus if no processing needed
     cached_result = _try_load_cache(
-        pdf_files, pdf_dir, citation_config,
-        new_files, changed_files, removed_files, cached_corpus,
+        pdf_files,
+        pdf_dir,
+        citation_config,
+        new_files,
+        changed_files,
+        removed_files,
+        cached_corpus,
         chunking_config_hash,
     )
     if cached_result is not None:
         return cached_result
-    
+
     # Determine which files to process
     files_to_process = new_files + changed_files
     _log_processing_status(files_to_process, new_files, changed_files, removed_files, pdf_files)
@@ -1163,9 +1260,15 @@ async def build_corpus(
     )
 
     # Extract and chunk PDFs with enriched metadata
-    new_corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown = _extract_and_chunk_pdfs(
-        files_to_process_list, pdf_data_list, citation_config,
-        chunking_config, doi_meta_map, pdf_dir
+    new_corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown = (
+        _extract_and_chunk_pdfs(
+            files_to_process_list,
+            pdf_data_list,
+            citation_config,
+            chunking_config,
+            doi_meta_map,
+            pdf_dir,
+        )
     )
 
     # Merge with cached corpus chunks from unchanged files
@@ -1186,17 +1289,30 @@ async def build_corpus(
 
     # Save corpus cache with diagnostics
     _save_corpus_cache(
-        final_corpus, pdf_dir, pdf_files,
-        matched_via_index, matched_via_doi, dropped_unknown,
-        new_files, changed_files, removed_files, biblio_map,
+        final_corpus,
+        pdf_dir,
+        pdf_files,
+        matched_via_index,
+        matched_via_doi,
+        dropped_unknown,
+        new_files,
+        changed_files,
+        removed_files,
+        biblio_map,
         chunking_config_hash,
     )
 
     # Print final statistics
     _print_final_stats(
-        new_corpus_chunks, final_corpus, files_to_process, pdf_files,
-        matched_via_index, matched_via_doi, dropped_unknown,
-        biblio_map, citation_config
+        new_corpus_chunks,
+        final_corpus,
+        files_to_process,
+        pdf_files,
+        matched_via_index,
+        matched_via_doi,
+        dropped_unknown,
+        biblio_map,
+        citation_config,
     )
 
     return final_corpus

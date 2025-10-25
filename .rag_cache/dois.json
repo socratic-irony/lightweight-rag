@@ -1,30 +1,4 @@
 {
-  "10.1080/15027570.2025.2483058": {
-    "crossref": {
-      "title": "Recent Insights in Responsible AI Development and Deployment in National Defense: A Review of Literature, 2022\u20132024",
-      "authors": [
-        "Jenkins, Ryan",
-        "Sullins, John P.",
-        "Kalu, Obinna",
-        "Kamath, Aisha",
-        "Phumjam, Krittana"
-      ],
-      "year": 2025,
-      "start_page": 63
-    },
-    "openalex": {
-      "venue": "Journal of Military Ethics",
-      "publisher": null,
-      "concepts": [
-        "Software deployment",
-        "Political science",
-        "Engineering ethics",
-        "Environmental ethics"
-      ],
-      "oa_url": null
-    },
-    "updated_at": "2025-10-23T05:36:12.899511+00:00"
-  },
   "10.1007/978-94-007-1433-5_35": {
     "crossref": {
       "title": "Risk and Responsibility",
@@ -55,40 +29,7 @@
       ],
       "oa_url": null
     },
-    "updated_at": "2025-10-23T05:36:12.922960+00:00"
-  },
-  "10.1145/3306618.3314289": {
-    "crossref": {
-      "title": "The Role and Limits of Principles in AI Ethics",
-      "authors": [
-        "Whittlestone, Jess",
-        "Nyrup, Rune",
-        "Alexandrova, Anna",
-        "Cave, Stephen"
-      ],
-      "year": 2019,
-      "start_page": 195
-    },
-    "openalex": {
-      "venue": null,
-      "publisher": null,
-      "concepts": [
-        "Autonomy",
-        "Harm",
-        "Engineering ethics",
-        "Bioethics",
-        "Field (mathematics)",
-        "Applied ethics",
-        "Epistemology",
-        "Focus (optics)",
-        "Information ethics",
-        "Sociology",
-        "Computer science",
-        "Management science"
-      ],
-      "oa_url": "https://dl.acm.org/doi/pdf/10.1145/3306618.3314289"
-    },
-    "updated_at": "2025-10-23T05:36:12.979585+00:00"
+    "updated_at": "2025-10-23T04:52:45.520173+00:00"
   },
   "10.1007/s11023-020-09537-4": {
     "crossref": {
@@ -120,39 +61,37 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s11023-020-09537-4.pdf"
     },
-    "updated_at": "2025-10-23T05:36:12.996097+00:00"
+    "updated_at": "2025-10-23T04:52:45.575739+00:00"
   },
-  "10.1007/s11569-017-0301-x": {
+  "10.1007/978-94-007-6970-0_5": {
     "crossref": {
-      "title": "Safe-by-Design: from Safety to Responsibility",
+      "title": "Conflicting Values in Design for Values",
       "authors": [
-        "van de Poel, Ibo",
-        "Robaey, Zo\u00eb"
+        "van de Poel, Ibo"
       ],
-      "year": 2017,
-      "start_page": 297
+      "year": 2015,
+      "start_page": 89
     },
     "openalex": {
-      "venue": "NanoEthics",
+      "venue": "Springer eBooks",
       "publisher": null,
       "concepts": [
-        "Heuristics",
-        "Risk analysis (engineering)",
-        "Philosophy of science",
+        "Commensurability (mathematics)",
+        "Arrow",
+        "Satisficing",
+        "Value (mathematics)",
+        "Mathematical economics",
+        "Social choice theory",
+        "Impossibility",
         "Computer science",
-        "Situated",
-        "Indeterminacy (philosophy)",
-        "Emerging technologies",
-        "Mistake",
-        "Moral responsibility",
-        "Computer security",
-        "Engineering ethics",
-        "Business",
-        "Internet privacy"
+        "Minimax",
+        "Management science",
+        "Mathematics",
+        "Operations research"
       ],
-      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5712322"
+      "oa_url": null
     },
-    "updated_at": "2025-10-23T05:36:13.101073+00:00"
+    "updated_at": "2025-10-23T04:52:45.821237+00:00"
   },
   "10.1007/s43681-021-00038-3": {
     "crossref": {
@@ -186,37 +125,98 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s43681-021-00038-3.pdf"
     },
-    "updated_at": "2025-10-23T05:36:13.188514+00:00"
+    "updated_at": "2025-10-23T04:52:45.665868+00:00"
   },
-  "10.1007/978-94-007-6970-0_5": {
+  "10.1145/3306618.3314289": {
     "crossref": {
-      "title": "Conflicting Values in Design for Values",
+      "title": "The Role and Limits of Principles in AI Ethics",
       "authors": [
-        "van de Poel, Ibo"
+        "Whittlestone, Jess",
+        "Nyrup, Rune",
+        "Alexandrova, Anna",
+        "Cave, Stephen"
       ],
-      "year": 2015,
-      "start_page": 89
+      "year": 2019,
+      "start_page": 195
     },
     "openalex": {
-      "venue": "Springer eBooks",
+      "venue": null,
       "publisher": null,
       "concepts": [
-        "Commensurability (mathematics)",
-        "Arrow",
-        "Satisficing",
-        "Value (mathematics)",
-        "Mathematical economics",
-        "Social choice theory",
-        "Impossibility",
+        "Autonomy",
+        "Harm",
+        "Engineering ethics",
+        "Bioethics",
+        "Field (mathematics)",
+        "Applied ethics",
+        "Epistemology",
+        "Focus (optics)",
+        "Information ethics",
+        "Sociology",
         "Computer science",
-        "Minimax",
-        "Management science",
-        "Mathematics",
-        "Operations research"
+        "Management science"
+      ],
+      "oa_url": "https://dl.acm.org/doi/pdf/10.1145/3306618.3314289"
+    },
+    "updated_at": "2025-10-23T04:52:45.755516+00:00"
+  },
+  "10.1007/s11569-017-0301-x": {
+    "crossref": {
+      "title": "Safe-by-Design: from Safety to Responsibility",
+      "authors": [
+        "van de Poel, Ibo",
+        "Robaey, Zo\u00eb"
+      ],
+      "year": 2017,
+      "start_page": 297
+    },
+    "openalex": {
+      "venue": "NanoEthics",
+      "publisher": null,
+      "concepts": [
+        "Heuristics",
+        "Risk analysis (engineering)",
+        "Philosophy of science",
+        "Computer science",
+        "Situated",
+        "Indeterminacy (philosophy)",
+        "Emerging technologies",
+        "Mistake",
+        "Moral responsibility",
+        "Computer security",
+        "Engineering ethics",
+        "Business",
+        "Internet privacy"
+      ],
+      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5712322"
+    },
+    "updated_at": "2025-10-23T04:52:46.056424+00:00"
+  },
+  "10.1080/15027570.2025.2483058": {
+    "crossref": {
+      "title": "Recent Insights in Responsible AI Development and Deployment in National Defense: A Review of Literature, 2022\u20132024",
+      "authors": [
+        "Jenkins, Ryan",
+        "Sullins, John P.",
+        "Kalu, Obinna",
+        "Kamath, Aisha",
+        "Phumjam, Krittana"
+      ],
+      "year": 2025,
+      "start_page": 63
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Software deployment",
+        "Political science",
+        "Engineering ethics",
+        "Environmental ethics"
       ],
       "oa_url": null
     },
-    "updated_at": "2025-10-23T05:36:13.550127+00:00"
+    "updated_at": "2025-10-23T04:52:46.188691+00:00"
   },
   "10.1007/s11948-015-9724-3": {
     "crossref": {
@@ -243,6 +243,6 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s11948-015-9724-3.pdf"
     },
-    "updated_at": "2025-10-23T05:36:13.415553+00:00"
+    "updated_at": "2025-10-23T04:52:46.411893+00:00"
   }
 }
