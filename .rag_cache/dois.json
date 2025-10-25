@@ -1,36 +1,4 @@
 {
-  "10.1007/978-94-007-1433-5_35": {
-    "crossref": {
-      "title": "Risk and Responsibility",
-      "authors": [
-        "van de Poel, Ibo",
-        "Fahlquist, Jessica Nihl\u00e9n"
-      ],
-      "year": 2012,
-      "start_page": 877
-    },
-    "openalex": {
-      "venue": "Springer eBooks",
-      "publisher": null,
-      "concepts": [
-        "Harm",
-        "Moral responsibility",
-        "Risk management",
-        "Risk assessment",
-        "Relation (database)",
-        "Collective responsibility",
-        "Social responsibility",
-        "Virtue",
-        "Political science",
-        "Psychology",
-        "Public relations",
-        "Business",
-        "Social psychology"
-      ],
-      "oa_url": null
-    },
-    "updated_at": "2025-10-23T04:52:45.520173+00:00"
-  },
   "10.1007/s11023-020-09537-4": {
     "crossref": {
       "title": "Embedding Values in Artificial Intelligence (AI) Systems",
@@ -61,7 +29,7 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s11023-020-09537-4.pdf"
     },
-    "updated_at": "2025-10-23T04:52:45.575739+00:00"
+    "updated_at": "2025-10-25T03:18:05.920246+00:00"
   },
   "10.1007/978-94-007-6970-0_5": {
     "crossref": {
@@ -91,7 +59,71 @@
       ],
       "oa_url": null
     },
-    "updated_at": "2025-10-23T04:52:45.821237+00:00"
+    "updated_at": "2025-10-25T03:18:06.434056+00:00"
+  },
+  "10.1007/s11569-017-0301-x": {
+    "crossref": {
+      "title": "Safe-by-Design: from Safety to Responsibility",
+      "authors": [
+        "van de Poel, Ibo",
+        "Robaey, Zo\u00eb"
+      ],
+      "year": 2017,
+      "start_page": 297
+    },
+    "openalex": {
+      "venue": "NanoEthics",
+      "publisher": null,
+      "concepts": [
+        "Heuristics",
+        "Risk analysis (engineering)",
+        "Philosophy of science",
+        "Computer science",
+        "Situated",
+        "Indeterminacy (philosophy)",
+        "Emerging technologies",
+        "Mistake",
+        "Moral responsibility",
+        "Computer security",
+        "Engineering ethics",
+        "Business",
+        "Internet privacy"
+      ],
+      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5712322"
+    },
+    "updated_at": "2025-10-25T03:18:06.099094+00:00"
+  },
+  "10.1007/978-94-007-1433-5_35": {
+    "crossref": {
+      "title": "Risk and Responsibility",
+      "authors": [
+        "van de Poel, Ibo",
+        "Fahlquist, Jessica Nihl\u00e9n"
+      ],
+      "year": 2012,
+      "start_page": 877
+    },
+    "openalex": {
+      "venue": "Springer eBooks",
+      "publisher": null,
+      "concepts": [
+        "Harm",
+        "Moral responsibility",
+        "Risk management",
+        "Risk assessment",
+        "Relation (database)",
+        "Collective responsibility",
+        "Social responsibility",
+        "Virtue",
+        "Political science",
+        "Psychology",
+        "Public relations",
+        "Business",
+        "Social psychology"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:06.110932+00:00"
   },
   "10.1007/s43681-021-00038-3": {
     "crossref": {
@@ -125,7 +157,7 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s43681-021-00038-3.pdf"
     },
-    "updated_at": "2025-10-23T04:52:45.665868+00:00"
+    "updated_at": "2025-10-25T03:18:06.200088+00:00"
   },
   "10.1145/3306618.3314289": {
     "crossref": {
@@ -158,39 +190,7 @@
       ],
       "oa_url": "https://dl.acm.org/doi/pdf/10.1145/3306618.3314289"
     },
-    "updated_at": "2025-10-23T04:52:45.755516+00:00"
-  },
-  "10.1007/s11569-017-0301-x": {
-    "crossref": {
-      "title": "Safe-by-Design: from Safety to Responsibility",
-      "authors": [
-        "van de Poel, Ibo",
-        "Robaey, Zo\u00eb"
-      ],
-      "year": 2017,
-      "start_page": 297
-    },
-    "openalex": {
-      "venue": "NanoEthics",
-      "publisher": null,
-      "concepts": [
-        "Heuristics",
-        "Risk analysis (engineering)",
-        "Philosophy of science",
-        "Computer science",
-        "Situated",
-        "Indeterminacy (philosophy)",
-        "Emerging technologies",
-        "Mistake",
-        "Moral responsibility",
-        "Computer security",
-        "Engineering ethics",
-        "Business",
-        "Internet privacy"
-      ],
-      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5712322"
-    },
-    "updated_at": "2025-10-23T04:52:46.056424+00:00"
+    "updated_at": "2025-10-25T03:18:06.329268+00:00"
   },
   "10.1080/15027570.2025.2483058": {
     "crossref": {
@@ -216,7 +216,7 @@
       ],
       "oa_url": null
     },
-    "updated_at": "2025-10-23T04:52:46.188691+00:00"
+    "updated_at": "2025-10-25T03:18:06.437685+00:00"
   },
   "10.1007/s11948-015-9724-3": {
     "crossref": {
@@ -243,6 +243,262 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s11948-015-9724-3.pdf"
     },
-    "updated_at": "2025-10-23T04:52:46.411893+00:00"
+    "updated_at": "2025-10-25T03:18:06.866674+00:00"
+  },
+  "10.1080/15027570.2013.782638": {
+    "crossref": {
+      "title": "JUST WAR AND CYBERWAR",
+      "authors": [
+        "Eberle, Christopher J."
+      ],
+      "year": 2013,
+      "start_page": 54
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Cyberwarfare",
+        "Political science",
+        "Philosophy"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.488935+00:00"
+  },
+  "10.1080/15027570.2013.782633": {
+    "crossref": {
+      "title": "WARFARE IN A NEW DOMAIN: THE ETHICS OF MILITARY CYBER-OPERATIONS",
+      "authors": [
+        "Barrett, Edward T."
+      ],
+      "year": 2013,
+      "start_page": 4
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Cyberwarfare",
+        "Domain (mathematical analysis)",
+        "Political science",
+        "Engineering ethics",
+        "Computer security",
+        "Law"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.506087+00:00"
+  },
+  "10.1080/15027570.2013.785126": {
+    "crossref": {
+      "title": "OTHER-THAN-INTERNET (OTI) CYBERWARFARE: CHALLENGES FOR ETHICS, LAW, AND POLICY",
+      "authors": [
+        "Dipert, Randall R."
+      ],
+      "year": 2013,
+      "start_page": 34
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "The Internet",
+        "Espionage",
+        "Cyberwarfare",
+        "Computer security",
+        "Malware",
+        "Computer science",
+        "Law",
+        "Internet privacy"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.515542+00:00"
+  },
+  "10.1080/15027570.2013.782639": {
+    "crossref": {
+      "title": "GUEST EDITOR'S INTRODUCTION THE ETHICAL DEBATE OVER CYBERWAR",
+      "authors": [
+        "Strawser, Bradley J."
+      ],
+      "year": 2013,
+      "start_page": 1
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Cyberwarfare",
+        "Political science",
+        "Engineering ethics",
+        "Philosophy",
+        "Law",
+        "Law and economics",
+        "Sociology"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.656237+00:00"
+  },
+  "10.1080/15027570.2013.782640": {
+    "crossref": {
+      "title": "IS STUXNET PHYSICAL? DOES IT MATTER?",
+      "authors": [
+        "Jenkins, Ryan"
+      ],
+      "year": 2013,
+      "start_page": 68
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Computer security",
+        "Cyberwarfare",
+        "Normative",
+        "Nuclear weapon",
+        "Computer science",
+        "Cyber-physical system",
+        "Software"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.659207+00:00"
+  },
+  "10.1080/15027570.2013.782632": {
+    "crossref": {
+      "title": "TWENTY YEARS OF CYBERWAR",
+      "authors": [
+        "Arquilla, John"
+      ],
+      "year": 2013,
+      "start_page": 80
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Cyberwarfare",
+        "Political science"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.881460+00:00"
+  },
+  "10.1080/15027570.2013.782637": {
+    "crossref": {
+      "title": "THE MORAL PERMISSIBILITY OF AUTOMATED RESPONSES DURING CYBERWARFARE",
+      "authors": [
+        "Danks, David",
+        "Danks, Joseph H."
+      ],
+      "year": 2013,
+      "start_page": 18
+    },
+    "openalex": {
+      "venue": "Journal of Military Ethics",
+      "publisher": null,
+      "concepts": [
+        "Offensive",
+        "Cyberwarfare",
+        "Adversary",
+        "Context (archaeology)",
+        "Attribution",
+        "Set (abstract data type)",
+        "Computer science",
+        "Computer security",
+        "Psychology",
+        "Social psychology"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2025-10-25T03:18:54.961423+00:00"
+  },
+  "10.1080/23299460.2022.2050570": {
+    "crossref": {
+      "title": "Responsibility and innovation",
+      "authors": [
+        "van den Hoven, Jeroen"
+      ],
+      "year": 2022,
+      "start_page": 133
+    },
+    "openalex": {
+      "venue": "Journal of Responsible Innovation",
+      "publisher": null,
+      "concepts": [
+        "Responsible Research and Innovation",
+        "Business",
+        "Engineering ethics",
+        "Political science"
+      ],
+      "oa_url": "https://www.tandfonline.com/doi/pdf/10.1080/23299460.2022.2050570?needAccess=true"
+    },
+    "updated_at": "2025-10-25T03:20:19.332501+00:00"
+  },
+  "10.1080/23299460.2014.882072": {
+    "crossref": {
+      "title": "Responsible innovation as an endorsement of public values: the need for interdisciplinary research",
+      "authors": [
+        "Taebi, B.",
+        "Correlj\u00e9, A.",
+        "Cuppen, E.",
+        "Dignum, M.",
+        "Pesch, U."
+      ],
+      "year": 2014,
+      "start_page": 118
+    },
+    "openalex": {
+      "venue": "Journal of Responsible Innovation",
+      "publisher": null,
+      "concepts": [
+        "Operationalization",
+        "Responsible Research and Innovation",
+        "Stakeholder",
+        "Context (archaeology)",
+        "Value (mathematics)",
+        "Salient",
+        "Public engagement",
+        "Maturity (psychological)",
+        "Stakeholder engagement",
+        "Engineering ethics",
+        "Ideal (ethics)",
+        "Public relations",
+        "Sociology",
+        "Political science"
+      ],
+      "oa_url": "https://www.tandfonline.com/doi/pdf/10.1080/23299460.2014.882072?needAccess=true"
+    },
+    "updated_at": "2025-10-25T03:20:19.335066+00:00"
+  },
+  "10.1080/23299460.2014.882077": {
+    "crossref": {
+      "title": "Mapping \u2018social responsibility\u2019 in science",
+      "authors": [
+        "Glerup, Cecilie",
+        "Horst, Maja"
+      ],
+      "year": 2014,
+      "start_page": 31
+    },
+    "openalex": {
+      "venue": "Journal of Responsible Innovation",
+      "publisher": null,
+      "concepts": [
+        "Rationality",
+        "Sociology",
+        "Politics",
+        "Reflexivity",
+        "Epistemology",
+        "Order (exchange)",
+        "Boundary-work",
+        "Social science",
+        "Political science"
+      ],
+      "oa_url": "https://doi.org/10.1080/23299460.2014.882077"
+    },
+    "updated_at": "2025-10-25T03:20:19.338408+00:00"
   }
 }
