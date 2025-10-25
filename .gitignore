@@ -80,3 +80,6 @@ wheels/
 # Linting artifacts
 .mypy_cache/
 .flake8
+
+# Local backups
+lightweight-rag-backup/
