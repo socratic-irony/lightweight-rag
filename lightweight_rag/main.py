@@ -10,7 +10,13 @@ from .index import build_bm25, tokenize, update_cache_paths
 from .io_pdf import build_corpus
 from .models import Chunk
 from .prf import rm3_expand_query
-from .scoring import ngram_bonus, pattern_bonus, proximity_bonus
+from .scoring import (
+    fuzzy_match_bonus,
+    gibberish_penalty,
+    ngram_bonus,
+    pattern_bonus,
+    proximity_bonus,
+)
 
 
 def search_topk(
@@ -65,6 +71,16 @@ def search_topk(
 
         # Pattern bonus
         scores[i] += pattern_bonus(chunk.text)
+        
+        # Gibberish penalty (multiplicative)
+        gib_penalty = gibberish_penalty(chunk.text, threshold=0.20)
+        if gib_penalty < 1.0:
+            scores[i] *= gib_penalty
+        
+        # Fuzzy match bonus (for exact quote searches)
+        fuzzy_bonus = fuzzy_match_bonus(chunk.text, query, min_length=20)
+        if fuzzy_bonus > 0:
+            scores[i] += 2.0 * fuzzy_bonus  # Weight of 2.0 for strong matches
 
     # Build candidate pool (larger for fusion)
     order = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)

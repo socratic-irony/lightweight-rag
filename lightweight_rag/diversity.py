@@ -2,18 +2,23 @@
 
 import re
 from collections import Counter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from .models import Chunk
 
 # Try to import numpy for MMR, fallback to TF-IDF if not available
-try:
+if TYPE_CHECKING:
+    # For type checking, always assume numpy is available
     import numpy as np
-
     HAS_NUMPY = True
-except ImportError:
-    np = None
-    HAS_NUMPY = False
+else:
+    # At runtime, try to import numpy
+    try:
+        import numpy as np
+        HAS_NUMPY = True
+    except ImportError:
+        np = None  # type: ignore
+        HAS_NUMPY = False
 
 
 def simple_tfidf_vectors(
@@ -286,8 +291,11 @@ def format_results(
                 "citekey": chunk.meta.citekey,
             },
         }
+        
+        # Always include pandoc field when requested, even if None
+        # This helps frontends understand when citekeys are missing
         if include_pandoc_cite:
-            result["pandoc"] = pandoc
+            result["pandoc"] = pandoc if pandoc else None
 
         if include_scores:
             result["score"] = round(score, 3)

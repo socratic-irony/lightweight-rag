@@ -812,7 +812,9 @@ def _extract_and_chunk_pdfs(
             matched_via_doi += 1
 
         # Create chunks for each page
-        doc_title = meta.title or pdf_basename.replace(".pdf", "")
+        # Note: doc_title is intentionally set to empty string to avoid prepending
+        # the document title to each chunk, which can interfere with search quality
+        doc_title = ""  # was: meta.title or pdf_basename.replace(".pdf", "")
         chunks, was_dropped = _create_chunks_from_pages(
             pages, meta, pdf_basename, doc_id, doc_title, chunking_config, drop_unknown
         )

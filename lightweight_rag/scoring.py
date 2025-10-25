@@ -1,5 +1,7 @@
 """BM25 scoring with proximity, n-gram, and pattern bonuses."""
 
+import re
+from difflib import SequenceMatcher
 from typing import List
 
 from .index import tokenize
@@ -80,3 +82,144 @@ def pattern_bonus(text: str) -> float:
     """
     text_lower = text.lower()
     return sum(1 for p in ANSWER_PATTERNS if p in text_lower) * 0.05
+
+
+def gibberish_penalty(text: str, threshold: float = 0.20) -> float:
+    """
+    Penalize text with high gibberish ratio (line numbers, DOIs, bad OCR).
+    
+    Returns a penalty multiplier between 0.0 (severe penalty) and 1.0 (no penalty).
+    
+    Gibberish indicators:
+    - Line numbers: "1480", "1481", "1482"
+    - DOI patterns: "doi:10.1111/j.1467"
+    - Mixed number-letter sequences: "10x", "3x", "p15"
+    - Isolated numbers mixed with text
+    - Excessive punctuation
+    
+    Args:
+        text: Text to analyze
+        threshold: Gibberish ratio above which to apply penalty (default 0.20 = 20%)
+    
+    Returns:
+        Penalty multiplier: 1.0 (no penalty) down to 0.0 (max penalty)
+    """
+    if not text or len(text) < 20:
+        return 1.0
+    
+    # Count gibberish patterns
+    gibberish_chars = 0
+    total_chars = len(text)
+    
+    # Pattern 1: Standalone line numbers (e.g., "1480 ", "1481 ")
+    line_numbers = re.findall(r'\b\d{3,5}\b', text)
+    gibberish_chars += sum(len(n) for n in line_numbers)
+    
+    # Pattern 2: DOI patterns
+    doi_matches = re.findall(r'doi:\S+|10\.\d{4,}/\S+', text)
+    gibberish_chars += sum(len(d) for d in doi_matches)
+    
+    # Pattern 3: Mixed number-letter patterns (bad OCR artifacts)
+    mixed_patterns = re.findall(r'\b\d+[a-zA-Z]+\d*\b|\b[a-zA-Z]+\d+[a-zA-Z]*\b', text)
+    # Filter out valid patterns like "p15", "2023", common abbreviations
+    valid_patterns = {'p', 'pp', 'ch', 'vol', 'no', 'ed', 'v', 'n'}
+    for pattern in mixed_patterns:
+        # Only count as gibberish if not a common valid pattern
+        if len(pattern) <= 3 and pattern.lower() not in valid_patterns:
+            continue
+        # Year-like patterns are OK
+        if re.match(r'^[12]\d{3}$', pattern):
+            continue
+        gibberish_chars += len(pattern)
+    
+    # Pattern 4: Excessive punctuation clusters
+    punct_clusters = re.findall(r'[^\w\s]{2,}', text)
+    gibberish_chars += sum(len(p) for p in punct_clusters)
+    
+    # Pattern 5: Words that are mostly numbers
+    words = text.split()
+    for word in words:
+        if len(word) > 2:
+            digit_count = sum(c.isdigit() for c in word)
+            if digit_count / len(word) > 0.5:
+                gibberish_chars += len(word)
+    
+    # Calculate gibberish ratio
+    gibberish_ratio = gibberish_chars / total_chars if total_chars > 0 else 0.0
+    
+    # Apply penalty if above threshold
+    if gibberish_ratio <= threshold:
+        return 1.0  # No penalty
+    
+    # Linear penalty from threshold to 50% gibberish
+    # At 20% gibberish: penalty = 1.0
+    # At 35% gibberish: penalty = 0.5
+    # At 50%+ gibberish: penalty = 0.0
+    penalty_range = 0.50 - threshold
+    excess_gibberish = min(gibberish_ratio - threshold, penalty_range)
+    penalty_multiplier = 1.0 - (excess_gibberish / penalty_range)
+    
+    return max(0.0, penalty_multiplier)
+
+
+def fuzzy_match_bonus(text: str, query: str, min_length: int = 20) -> float:
+    """
+    Reward long exact or near-exact substring matches.
+    
+    Useful when searching for known quotes or exact passages. Uses Python's
+    difflib.SequenceMatcher to find the longest matching substring.
+    
+    Args:
+        text: Document text to search
+        query: Query string (may be an exact quote)
+        min_length: Minimum match length to consider (default 20 chars)
+    
+    Returns:
+        Bonus score between 0.0 and 1.0:
+        - 0.0: No significant match
+        - 0.5: Moderate match (20-50 chars, ~80% similarity)
+        - 1.0: Strong match (50+ chars, 95%+ similarity)
+    """
+    if not text or not query or len(query) < min_length:
+        return 0.0
+    
+    # Normalize whitespace
+    text_normalized = ' '.join(text.lower().split())
+    query_normalized = ' '.join(query.lower().split())
+    
+    # Find longest matching substring using SequenceMatcher
+    matcher = SequenceMatcher(None, text_normalized, query_normalized)
+    match = matcher.find_longest_match(0, len(text_normalized), 0, len(query_normalized))
+    
+    if match.size < min_length:
+        return 0.0
+    
+    # Calculate match quality
+    match_length = match.size
+    match_ratio = match_length / len(query_normalized)
+    
+    # Extract the matching substrings to check similarity
+    text_match = text_normalized[match.a:match.a + match.size]
+    query_match = query_normalized[match.b:match.b + match.size]
+    
+    # Calculate character-level similarity of the match
+    similarity = SequenceMatcher(None, text_match, query_match).ratio()
+    
+    # Score based on both length and similarity
+    # Length component (0.0 to 0.5)
+    length_score = min(0.5, match_length / 100)  # Cap at 50 chars for 0.5
+    
+    # Similarity component (0.0 to 0.5)
+    # Strong reward for very high similarity (95%+)
+    if similarity >= 0.95:
+        similarity_score = 0.5
+    elif similarity >= 0.85:
+        similarity_score = 0.3 + (similarity - 0.85) * 2.0  # 0.3 to 0.5
+    elif similarity >= 0.75:
+        similarity_score = 0.1 + (similarity - 0.75) * 2.0  # 0.1 to 0.3
+    else:
+        similarity_score = similarity * 0.1  # Up to 0.1
+    
+    total_score = length_score + similarity_score
+    
+    return min(1.0, total_score)
