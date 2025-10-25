@@ -135,13 +135,13 @@ def normalize_text(s: str) -> str:
 
 def split_into_sentences(text: str) -> List[str]:
     """
-    Simple sentence splitter using regex patterns.
+    Simple sentence splitter using regex patterns, preserving sentence-ending punctuation.
 
     Args:
         text: Input text to split
 
     Returns:
-        List of sentences
+        List of sentences with their ending punctuation
     """
     # Simple sentence boundaries - avoid complex lookbehind patterns
     # First replace common abbreviations to protect them
@@ -151,23 +151,33 @@ def split_into_sentences(text: str) -> List[str]:
         text,
     )
 
-    # Split on sentence endings
-    sentences = re.split(r"[.!?]+\s+", text)
+    # Split on sentence endings, keeping the punctuation with each sentence
+    # Use lookahead to split after punctuation + whitespace
+    sentences = re.split(r"([.!?]+)\s+", text)
 
-    # Restore the dots in abbreviations
-    sentences = [s.replace("~DOT~", ".").strip() for s in sentences]
+    # Rejoin sentences with their punctuation
+    result = []
+    for i in range(0, len(sentences) - 1, 2):
+        if i + 1 < len(sentences):
+            sentence = sentences[i] + sentences[i + 1]
+            sentence = sentence.replace("~DOT~", ".").strip()
+            if sentence and len(sentence.strip()) > 10:
+                result.append(sentence)
+    
+    # Handle the last sentence if it doesn't have trailing punctuation
+    if len(sentences) % 2 == 1:
+        last = sentences[-1].replace("~DOT~", ".").strip()
+        if last and len(last.strip()) > 10:
+            result.append(last)
 
-    # Filter out empty sentences and very short ones
-    sentences = [s for s in sentences if s and len(s.strip()) > 10]
-
-    return sentences
+    return result
 
 
 def create_sliding_windows(
     text: str, window_chars: int = 300, overlap_chars: int = 50
 ) -> List[str]:
     """
-    Create sliding windows of text with overlap.
+    Create sliding windows of text with overlap, respecting sentence boundaries.
 
     Args:
         text: Input text
@@ -180,64 +190,129 @@ def create_sliding_windows(
     if len(text) <= window_chars:
         return [text]
 
-    words = text.split()
-    if not words:
+    # Split text into sentences to respect sentence boundaries
+    sentences = split_into_sentences(text)
+    if not sentences:
         return []
 
-    windows: List[str] = []
-    current_words: List[str] = []
-    current_length = 0
-    index = 0
+    # If we only got one "sentence" and it's very long, it likely means
+    # the text doesn't have proper sentence boundaries. In this case,
+    # fall back to word-based chunking to avoid returning a single huge chunk.
+    if len(sentences) == 1 and len(sentences[0]) > window_chars:
+        # Fall back to word-based chunking for non-sentence text
+        words = text.split()
+        if not words:
+            return []
 
-    while index < len(words):
-        word = words[index]
-        word_length = len(word)
-        # Include a space when appending additional words
-        additional_length = word_length if not current_words else word_length + 1
+        windows: List[str] = []
+        current_words: List[str] = []
+        current_length = 0
+        index = 0
 
-        if current_length + additional_length <= window_chars or not current_words:
-            current_words.append(word)
-            current_length += additional_length
-            index += 1
-        else:
+        while index < len(words):
+            word = words[index]
+            word_length = len(word)
+            additional_length = word_length if not current_words else word_length + 1
+
+            if current_length + additional_length <= window_chars or not current_words:
+                current_words.append(word)
+                current_length += additional_length
+                index += 1
+            else:
+                window_text = " ".join(current_words).strip()
+                if window_text:
+                    windows.append(window_text)
+
+                if overlap_chars > 0 and current_words:
+                    overlap_words: List[str] = []
+                    overlap_length = 0
+                    j = len(current_words) - 1
+                    while j >= 0 and overlap_length < overlap_chars:
+                        token = current_words[j]
+                        token_length = len(token) if not overlap_words else len(token) + 1
+                        overlap_length += token_length
+                        overlap_words.insert(0, token)
+                        j -= 1
+
+                    overlap_total_length = sum(len(tok) for tok in overlap_words) + max(
+                        len(overlap_words) - 1, 0
+                    )
+                    next_word_length = word_length if not overlap_words else word_length + 1
+
+                    if overlap_total_length + next_word_length > window_chars and overlap_words:
+                        current_words = []
+                        current_length = 0
+                    else:
+                        current_words = overlap_words
+                        current_length = sum(len(tok) for tok in current_words) + max(
+                            len(current_words) - 1, 0
+                        )
+                else:
+                    current_words = []
+                    current_length = 0
+
+        if current_words:
             window_text = " ".join(current_words).strip()
             if window_text:
                 windows.append(window_text)
 
-            if overlap_chars > 0 and current_words:
-                overlap_words: List[str] = []
+        return [w for w in windows if len(w.strip()) > 20]
+
+    # Sentence-based chunking (the primary/correct path)
+    windows: List[str] = []
+    current_sentences: List[str] = []
+    current_length = 0
+    index = 0
+
+    while index < len(sentences):
+        sentence = sentences[index]
+        sentence_length = len(sentence)
+        # Include a space when appending additional sentences
+        additional_length = sentence_length if not current_sentences else sentence_length + 1
+
+        if current_length + additional_length <= window_chars or not current_sentences:
+            current_sentences.append(sentence)
+            current_length += additional_length
+            index += 1
+        else:
+            window_text = " ".join(current_sentences).strip()
+            if window_text:
+                windows.append(window_text)
+
+            if overlap_chars > 0 and current_sentences:
+                overlap_sentences: List[str] = []
                 overlap_length = 0
-                j = len(current_words) - 1
+                j = len(current_sentences) - 1
                 while j >= 0 and overlap_length < overlap_chars:
-                    token = current_words[j]
-                    token_length = len(token) if not overlap_words else len(token) + 1
-                    overlap_length += token_length
-                    overlap_words.insert(0, token)
+                    sent = current_sentences[j]
+                    sent_length = len(sent) if not overlap_sentences else len(sent) + 1
+                    overlap_length += sent_length
+                    overlap_sentences.insert(0, sent)
                     j -= 1
 
-                # Check if next word would fit with overlap words
-                # If not (e.g., word is too long), skip overlap to avoid infinite loop
-                overlap_total_length = sum(len(tok) for tok in overlap_words) + max(
-                    len(overlap_words) - 1, 0
+                # Check if next sentence would fit with overlap sentences
+                # If not (e.g., sentence is too long), skip overlap to avoid infinite loop
+                overlap_total_length = sum(len(s) for s in overlap_sentences) + max(
+                    len(overlap_sentences) - 1, 0
                 )
-                next_word_length = word_length if not overlap_words else word_length + 1
+                next_sentence_length = sentence_length if not overlap_sentences else sentence_length + 1
 
-                if overlap_total_length + next_word_length > window_chars and overlap_words:
-                    # Word won't fit even after overlap, reset completely
-                    current_words = []
+                if overlap_total_length + next_sentence_length > window_chars and overlap_sentences:
+                    # Sentence won't fit even after overlap, reset completely
+                    current_sentences = []
                     current_length = 0
                 else:
-                    current_words = overlap_words
-                    current_length = sum(len(tok) for tok in current_words) + max(
-                        len(current_words) - 1, 0
+                    current_sentences = overlap_sentences
+                    current_length = sum(len(s) for s in current_sentences) + max(
+                        len(current_sentences) - 1, 0
                     )
             else:
-                current_words = []
+                current_sentences = []
                 current_length = 0
 
-    # Append any remaining words as the final window
-    if current_words:
-        window_text = " ".join(current_words).strip()
+    # Append any remaining sentences as the final window
+    if current_sentences:
+        window_text = " ".join(current_sentences).strip()
         if window_text:
             windows.append(window_text)
 

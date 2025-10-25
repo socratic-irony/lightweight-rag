@@ -355,6 +355,20 @@ class TestChunkingConfigurations:
         # All chunks should have the title
         assert all("Test Doc" in chunk for chunk in chunks)
     
+    def test_chunk_sliding_respects_sentence_boundaries(self):
+        """Test that sliding windows respect sentence boundaries."""
+        text = "First sentence here. Second sentence here. Third sentence here. Fourth sentence here. Fifth sentence here. Sixth sentence here."
+        config = {"page_split": "sliding", "window_chars": 100, "overlap_chars": 20}
+        chunks = chunk_text(text, doc_title="", chunking_config=config)
+        
+        # All chunks should end with sentence-ending punctuation
+        for chunk in chunks:
+            assert chunk.endswith('.') or chunk.endswith('!') or chunk.endswith('?'), \
+                f"Chunk does not end at sentence boundary: {chunk}"
+        
+        # Should create multiple chunks given the text length and window size
+        assert len(chunks) >= 2
+    
     def test_chunk_no_title(self):
         """Test chunking without title."""
         text = "Content without title"
