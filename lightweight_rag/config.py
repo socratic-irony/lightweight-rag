@@ -85,7 +85,7 @@ def get_default_config() -> Dict[str, Any]:
                 "model": "sentence-transformers/all-MiniLM-L6-v2",
                 "topn": 80,
             },
-            "final_top_k": 8,
+            "final_top_k": 20,
         },
         "fusion": {
             "rrf": {

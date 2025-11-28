@@ -25,7 +25,7 @@ from .models import Chunk, DocMeta, find_doi_in_text
 _FITZ_LOCK = threading.Lock()
 
 
-def _print_if_not_quiet(message: str, config: Dict[str, Any] = None):
+def _print_if_not_quiet(message: str, config: Optional[Dict[str, Any]] = None):
     """Print message unless quiet mode is enabled."""
     if config is None or not config.get("_quiet_mode", False):
         print(message, file=sys.stderr if config and config.get("_quiet_mode") else sys.stdout)
@@ -321,7 +321,7 @@ def create_sliding_windows(
     return [w for w in windows if len(w.strip()) > 20]
 
 
-def chunk_text(text: str, doc_title: str = "", chunking_config: dict = None) -> List[str]:
+def chunk_text(text: str, doc_title: str = "", chunking_config: Optional[dict] = None) -> List[str]:
     """
     Chunk text according to configuration.
 
@@ -381,10 +381,10 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
                     page = doc.load_page(page_num)
 
                     # Try different extraction methods if quality is poor
-                    text = page.get_text()
+                    raw_text = page.get_text()
 
                     # Clean and validate text quality
-                    text = clean_text(text)
+                    text = clean_text(str(raw_text))
 
                     if not is_text_quality_good(text):
                         # Try alternative extraction method
@@ -497,6 +497,57 @@ def _enrich_chunk_with_bibliography(
     return chunk, enriched
 
 
+def _generate_fallback_citekey(filename: str) -> str:
+    """Generate a fallback citekey from filename."""
+    # Remove extension
+    base = os.path.splitext(filename)[0]
+    # Split at space, comma, or underscore and take first chunk
+    first_chunk = re.split(r"[ ,_]", base)[0]
+    # Max 15 chars
+    key = first_chunk[:15]
+    # Lowercase for consistency
+    return key.lower()
+
+
+def _ensure_citekeys_for_corpus(corpus: List[Chunk]) -> None:
+    """Ensure all chunks in corpus have a citekey, generating fallbacks if needed."""
+    used_keys = {c.meta.citekey for c in corpus if c.meta.citekey}
+    
+    # Group chunks by source to ensure consistent keys for same document
+    chunks_by_source = {}
+    for chunk in corpus:
+        if chunk.meta.source not in chunks_by_source:
+            chunks_by_source[chunk.meta.source] = []
+        chunks_by_source[chunk.meta.source].append(chunk)
+        
+    for source, chunks in chunks_by_source.items():
+        # Check if this document already has a key (from one of its chunks)
+        existing_key = next((c.meta.citekey for c in chunks if c.meta.citekey), None)
+        
+        if existing_key:
+            # Propagate existing key to all chunks of this doc
+            for chunk in chunks:
+                if not chunk.meta.citekey:
+                    chunk.meta.citekey = existing_key
+        else:
+            # Generate new key
+            base = _generate_fallback_citekey(os.path.basename(source))
+            candidate = base
+            suffix_idx = 0
+            while candidate in used_keys:
+                if suffix_idx < 26:
+                    suffix = chr(ord('a') + suffix_idx)
+                else:
+                    suffix = f"z{suffix_idx - 25}"
+                candidate = f"{base}-{suffix}"
+                suffix_idx += 1
+            
+            # Assign to all chunks of this doc
+            for chunk in chunks:
+                chunk.meta.citekey = candidate
+            used_keys.add(candidate)
+
+
 def _try_load_cache(
     pdf_files: List[Path],
     pdf_dir: Path,
@@ -588,6 +639,9 @@ def _try_load_cache(
             print(
                 f"Removed {len(removed_files)} files from cache, {len(updated_corpus)} chunks remaining"
             )
+
+        # Ensure citekeys for all chunks (generating fallbacks if needed)
+        _ensure_citekeys_for_corpus(updated_corpus)
 
         # Persist cache and manifest, write diagnostics
         save_corpus_to_cache(updated_corpus)
@@ -836,6 +890,7 @@ def _extract_and_chunk_pdfs(
     chunking_config: Optional[dict],
     doi_meta_map: Dict[str, DocMeta],
     pdf_dir: Path,
+    existing_citekeys: Optional[set] = None,
 ) -> tuple[List[Chunk], int, int, int]:
     """Extract text from PDFs and create chunks with metadata enrichment.
 
@@ -846,6 +901,7 @@ def _extract_and_chunk_pdfs(
         chunking_config: Configuration for text chunking
         doi_meta_map: Pre-fetched DOI metadata
         pdf_dir: Directory containing PDFs
+        existing_citekeys: Set of citekeys already in use (from cached corpus)
 
     Returns:
         Tuple of (corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown)
@@ -863,6 +919,12 @@ def _extract_and_chunk_pdfs(
             except Exception:
                 biblio_map = {}
         drop_unknown = citation_config.get("drop_unknown", False)
+
+    # Initialize used keys with existing ones and those from bibliography
+    used_keys = set(existing_citekeys) if existing_citekeys else set()
+    for entry in biblio_map.values():
+        if entry.citekey:
+            used_keys.add(entry.citekey)
 
     matched_via_index = 0
     matched_via_doi = 0
@@ -902,6 +964,27 @@ def _extract_and_chunk_pdfs(
             meta.concepts = meta.concepts or enriched_meta.concepts
             meta.oa_url = meta.oa_url or enriched_meta.oa_url
             matched_via_doi += 1
+
+        # Generate fallback citekey if missing
+        if not meta.citekey:
+            base_key = _generate_fallback_citekey(pdf_basename)
+            candidate = base_key
+            suffix_idx = 0
+            
+            while candidate in used_keys:
+                # Generate suffix: -a, -b, ... -z, -aa, -ab...
+                # Simplified: -a, -b ... -z, then -z1, -z2...
+                if suffix_idx < 26:
+                    suffix = chr(ord('a') + suffix_idx)
+                else:
+                    suffix = f"z{suffix_idx - 25}"
+                candidate = f"{base_key}-{suffix}"
+                suffix_idx += 1
+            
+            meta.citekey = candidate
+            used_keys.add(candidate)
+        else:
+            used_keys.add(meta.citekey)
 
         # Create chunks for each page
         # Note: doc_title is intentionally set to empty string to avoid prepending
@@ -1247,8 +1330,21 @@ async def build_corpus(
 
     # Determine which files to process
     files_to_process = new_files + changed_files
+
+    # Ensure cached corpus has citekeys before we use it for existing_citekeys or merging
+    if cached_corpus:
+        _ensure_citekeys_for_corpus(cached_corpus)
+
     _log_processing_status(files_to_process, new_files, changed_files, removed_files, pdf_files)
     files_to_process_list = list(files_to_process) if files_to_process else pdf_files
+
+    # Calculate existing citekeys from cached corpus for unchanged files
+    existing_citekeys = set()
+    if cached_corpus:
+        files_to_process_basenames = {os.path.basename(str(f)) for f in files_to_process}
+        for chunk in cached_corpus:
+            if chunk.source not in files_to_process_basenames and chunk.meta.citekey:
+                existing_citekeys.add(chunk.meta.citekey)
 
     # Extract text from PDFs in parallel
     pdf_data_list = _extract_pdf_text_parallel(files_to_process_list, max_workers)
@@ -1268,6 +1364,7 @@ async def build_corpus(
             chunking_config,
             doi_meta_map,
             pdf_dir,
+            existing_citekeys,
         )
     )
 

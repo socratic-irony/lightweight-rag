@@ -148,7 +148,7 @@ def _load_model(model_name: str) -> Optional["SentenceTransformer"]:
     with _model_lock:
         if _model is None or _model_name != model_name:
             try:
-                _model = SentenceTransformer(model_name)
+                _model = SentenceTransformer(model_name, device="cpu")
                 _model_name = model_name
             except Exception as exc:
                 print(f"Failed to load sentence transformer model: {exc}")
@@ -206,7 +206,7 @@ def _chunk_embeddings(
                 uncached.append((idx, text))
 
     if uncached:
-        suggested = min(32, (len(uncached) or 1))
+        suggested = min(4, (len(uncached) or 1))
         worker_count = max(1, max_workers or suggested)
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             future_to_idx = {
