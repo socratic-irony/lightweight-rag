@@ -72,6 +72,7 @@ def build_ranking_runs(
     pool: List[int],
     baseline_scores: List[float],
     config: Dict,
+    semantic_query: Optional[str] = None,
 ) -> List[List[int]]:
     """
     Build multiple ranking runs over the same candidate pool.
@@ -84,6 +85,7 @@ def build_ranking_runs(
         pool: Candidate pool indices
         baseline_scores: Baseline BM25+bonuses scores
         config: Configuration dictionary
+        semantic_query: Optional query to use for semantic reranking (e.g. HyDE expansion)
 
     Returns:
         List of ranking runs (each is a list of indices)
@@ -149,7 +151,9 @@ def build_ranking_runs(
         candidate_scores = [baseline_scores[i] for i in candidates_for_semantic]
 
         # Semantic rerank returns new scores; we need to re-sort
-        reranked_scores = semantic_rerank(query, candidate_texts, candidate_scores)
+        # Use semantic_query if provided (e.g. HyDE), otherwise original query
+        query_for_semantic = semantic_query if semantic_query else query
+        reranked_scores = semantic_rerank(query_for_semantic, candidate_texts, candidate_scores)
 
         # Create mapping from index to new score
         score_map = {

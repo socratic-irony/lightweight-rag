@@ -38,6 +38,8 @@ def search_topk(
     include_pandoc_cite: bool = False,
     use_pandoc_as_primary: bool = False,
     fusion_config: Optional[Dict] = None,
+    bm25_query: Optional[str] = None,
+    semantic_query: Optional[str] = None,
     **kwargs,  # Accept additional config parameters
 ) -> List[Dict[str, Any]]:
     """
@@ -52,10 +54,12 @@ def search_topk(
 
     # Build baseline BM25 + bonuses scores
     q_tokens = tokenize(query)
-    base_scores = bm25.get_scores(q_tokens)
+    bm25_tokens = tokenize(bm25_query) if bm25_query else q_tokens
+    base_scores = bm25.get_scores(bm25_tokens)
 
     # Apply bonuses
-    scores = list(base_scores)
+    # Ensure scores are native Python floats to satisfy type checkers and downstream functions
+    scores = [float(s) for s in base_scores]
     for i, chunk in enumerate(corpus):
         # Proximity bonus
         if prox_lambda > 0 and prox_window > 0:
@@ -102,7 +106,7 @@ def search_topk(
     }
 
     # Build multiple ranking runs
-    runs = build_ranking_runs(query, corpus, bm25, tokenized, pool, scores, run_config)
+    runs = build_ranking_runs(query, corpus, bm25, tokenized, pool, scores, run_config, semantic_query=semantic_query)
 
     # Apply RRF fusion if enabled and we have multiple runs
     if (
@@ -191,11 +195,32 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
     bm25, tokenized = build_bm25(corpus, token_pattern, k1, b)
     print(f"Indexed {len(corpus)} chunks")
 
+    # Initialize retrieval query with original query
+    bm25_query = query
+    semantic_query = None
+
+    # LLM-based HyDE expansion
+    if cfg.get("llm", {}).get("enabled", False):
+        from .llm import LLMClient
+        llm_client = LLMClient(cfg["llm"])
+        print("Generating hypothetical answer for query expansion...")
+        hypothetical = llm_client.generate_hypothetical_answer(query)
+        if hypothetical:
+            print(f"[HyDE] Generated passage: {hypothetical[:100]}...")
+            
+            # Apply to BM25 if enabled
+            if cfg["llm"].get("use_for_bm25", True):
+                bm25_query = f"{query} {hypothetical}"
+                
+            # Apply to Semantic Reranking if enabled
+            if cfg["llm"].get("use_for_semantic", False):
+                # Combine query and hypothetical for richer semantic matching
+                semantic_query = f"{query} {hypothetical}"
+
     # Query expansion with RM3 if enabled
-    expanded_query = query
     if cfg["prf"]["enabled"]:
-        expanded_query = rm3_expand_query(
-            query,
+        bm25_query = rm3_expand_query(
+            bm25_query,
             bm25,
             tokenized,
             corpus,
@@ -203,15 +228,17 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
             fb_terms=cfg["prf"]["fb_terms"],
             alpha=cfg["prf"]["alpha"],
         )
-        if expanded_query != query:
-            print(f"\n[RM3] Expanded query: {expanded_query}")
+        if bm25_query != query:
+            print(f"\n[RM3] Expanded query terms added.")
 
     # Search with all configured options
     results = search_topk(
         corpus=corpus,
         bm25=bm25,
         tokenized=tokenized,
-        query=expanded_query,
+        query=query,  # Use original query for scoring/bonuses
+        bm25_query=bm25_query,  # Use expanded query for retrieval
+        semantic_query=semantic_query, # Use expanded query for semantic reranking
         k=cfg["rerank"]["final_top_k"],
         prox_window=(
             0

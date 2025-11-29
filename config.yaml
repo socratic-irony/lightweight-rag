@@ -17,6 +17,18 @@ bm25:
   pool_size: 200                  # candidates from lexical stage before fusion/rerank
   token_pattern: "[A-Za-z0-9]+"
 
+llm:
+  enabled: true
+  provider: "openrouter"          # "openai", "ollama", or "openrouter"
+  base_url: "https://openrouter.ai/api/v1"
+  model: "x-ai/grok-4.1-fast:free"
+  api_key_env: "OPENROUTER_API_KEY" # Name of env var to load
+  temperature: 0.7                # Higher temp for diversity in HyDE
+  max_tokens: 250
+  n: 5                            # Number of HyDE documents to generate
+  use_for_bm25: false             # Add generated text to BM25 search (can be noisy)
+  use_for_semantic: true          # Add generated text to Semantic embedding (HyDE)
+
 prf:                              # RM3
   enabled: false
   fb_docs: 6
