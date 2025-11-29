@@ -4,6 +4,9 @@ JSON subprocess interface for lightweight_rag.
 
 This provides a simple JSON-based interface for external programs (like Node.js)
 to use the lightweight_rag module via subprocess calls.
+
+We also pin the runtime to single-threaded defaults early to avoid native
+mutex/lock contention issues in BLAS/tokenizers/torch/FAISS on some systems.
 """
 
 import asyncio
@@ -15,6 +18,40 @@ from typing import Any, Dict, List
 from .config import get_default_config, load_config, merge_configs
 from .environment import adapt_config_for_environment
 from .main import run_rag_pipeline
+
+# Apply conservative threading/locking env before anything heavy loads
+_THREAD_ENV_DEFAULTS = {
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "TOKENIZERS_PARALLELISM": "false",
+    "MALLOC_ARENA_MAX": "1",
+    "FAISS_DISABLE_LOCKING": "1",
+    # Keep everything on CPU to avoid GPU/MPS locking on systems where it's flaky
+    "CUDA_VISIBLE_DEVICES": "",
+    "PYTORCH_ENABLE_MPS_FALLBACK": "1",
+}
+
+
+def _apply_thread_env():
+    import os
+
+    for key, value in _THREAD_ENV_DEFAULTS.items():
+        os.environ.setdefault(key, value)
+
+    # If torch is available, force single-thread execution
+    try:
+        import torch
+
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+    except Exception:
+        pass
+
+
+_apply_thread_env()
 
 
 def create_error_response(error_message: str, query: str = None) -> Dict[str, Any]:

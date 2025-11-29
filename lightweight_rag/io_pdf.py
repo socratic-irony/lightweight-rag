@@ -8,8 +8,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import fitz  # PyMuPDF
-from tqdm import tqdm
+import fitz  # type: ignore[import-untyped]  # PyMuPDF
+from tqdm import tqdm  # type: ignore[import-untyped]
 
 from .io_biblio import load_biblio_index
 from .models import Chunk, DocMeta, find_doi_in_text
@@ -259,7 +259,7 @@ def create_sliding_windows(
         return [w for w in windows if len(w.strip()) > 20]
 
     # Sentence-based chunking (the primary/correct path)
-    windows: List[str] = []
+    sentence_windows: List[str] = []
     current_sentences: List[str] = []
     current_length = 0
     index = 0
@@ -277,7 +277,7 @@ def create_sliding_windows(
         else:
             window_text = " ".join(current_sentences).strip()
             if window_text:
-                windows.append(window_text)
+                sentence_windows.append(window_text)
 
             if overlap_chars > 0 and current_sentences:
                 overlap_sentences: List[str] = []
@@ -316,12 +316,14 @@ def create_sliding_windows(
     if current_sentences:
         window_text = " ".join(current_sentences).strip()
         if window_text:
-            windows.append(window_text)
+            sentence_windows.append(window_text)
 
-    return [w for w in windows if len(w.strip()) > 20]
+    return [w for w in sentence_windows if len(w.strip()) > 20]
 
 
-def chunk_text(text: str, doc_title: str = "", chunking_config: Optional[dict] = None) -> List[str]:
+def chunk_text(
+    text: str, doc_title: str = "", chunking_config: Optional[Dict[str, Any]] = None
+) -> List[str]:
     """
     Chunk text according to configuration.
 
@@ -702,7 +704,7 @@ async def _enrich_citations_parallel(
 
     from .cite import batch_enriched_lookup
 
-    doi_meta_map = {}
+    doi_meta_map: Dict[str, DocMeta] = {}
     if not dois_to_fetch:
         return doi_meta_map
 

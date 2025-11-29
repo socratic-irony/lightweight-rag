@@ -5,15 +5,11 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-# Optional imports for semantic reranking
-try:
-    import numpy as np
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    np = None
-    SentenceTransformer = None
+# Lazy optional imports; heavy libs are loaded only when needed to avoid startup locks
+np: Any = None
+SentenceTransformer: Any = None
 
 
 _model = None
@@ -141,9 +137,17 @@ def _normalize(vector: "np.ndarray") -> "np.ndarray":
 
 def _load_model(model_name: str) -> Optional["SentenceTransformer"]:
     global _model, _model_name
+    global np, SentenceTransformer
 
     if SentenceTransformer is None:
-        return None
+        try:
+            import numpy as np_mod  # type: ignore
+            from sentence_transformers import SentenceTransformer as ST  # type: ignore
+
+            np = np_mod
+            SentenceTransformer = ST
+        except ImportError:
+            return None
 
     with _model_lock:
         if _model is None or _model_name != model_name:
@@ -206,8 +210,8 @@ def _chunk_embeddings(
                 uncached.append((idx, text))
 
     if uncached:
-        suggested = min(4, (len(uncached) or 1))
-        worker_count = max(1, max_workers or suggested)
+        # Force single-worker encoding to avoid native mutex contention on some systems
+        worker_count = 1
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             future_to_idx = {
                 executor.submit(_encode_single_text, model, text): (idx, text)

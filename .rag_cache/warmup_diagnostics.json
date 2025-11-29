@@ -1,1 +1,1 @@
-{"total_pdfs": 12, "processed_pdfs": 0, "matched_via_index": 0, "matched_via_doi": 0, "dropped_unknown": 0, "new_files": 0, "changed_files": 0, "removed_files": 0, "biblio_index_present": false}
+{"total_pdfs": 12, "processed_pdfs": 12, "matched_via_index": 0, "matched_via_doi": 3, "dropped_unknown": 9, "new_files": 12, "changed_files": 0, "removed_files": 0, "biblio_index_present": false}
