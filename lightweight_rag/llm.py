@@ -2,13 +2,15 @@
 
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict, Optional, List
 
 import httpx
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file in the lightweight-rag root
+_dotenv_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(dotenv_path=_dotenv_path, override=False)
 
 
 _hyde_cache: Dict[str, str] = {}
@@ -44,6 +46,118 @@ class LLMClient:
         self.max_tokens = config.get("max_tokens", 150)
         self.n = config.get("n", 1)
         self.timeout = 20.0  # Increased timeout for external APIs/multiple generations
+        self.referer = config.get("referer")
+        self.title = config.get("title")
+        self.extra_body = config.get("extra_body", {})
+        self.last_hyde_debug: Optional[Dict[str, str]] = None
+        self.last_summary_debug: Optional[Dict[str, str]] = None
+        self._last_raw_response: Optional[Dict[str, Any]] = None
+
+    def _chat_completion(self, prompt: str, max_tokens: int, n: int) -> Optional[List[str]]:
+        """Call the configured LLM provider and return a list of response strings."""
+        extra_headers = {}
+        if self.referer:
+            extra_headers["HTTP-Referer"] = self.referer
+        if self.title:
+            extra_headers["X-Title"] = self.title
+
+        message_content = (
+            [{"type": "text", "text": prompt}] if self.provider == "openrouter" else prompt
+        )
+
+        # Prefer OpenAI client if available (matches OpenRouter example)
+        last_exc = None
+        try:
+            from openai import OpenAI  # type: ignore
+
+            client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+            completion = client.chat.completions.create(
+                extra_headers=extra_headers,
+                extra_body=self.extra_body or {},
+                model=self.model,
+                messages=[{"role": "user", "content": message_content}],
+                temperature=self.temperature,
+                max_tokens=max_tokens,
+                n=n,
+            )
+            raw = completion.model_dump() if hasattr(completion, "model_dump") else None
+            choices = getattr(completion, "choices", None)
+            if not choices:
+                self._last_raw_response = raw
+                return None
+            passages = []
+            for choice in choices:
+                if not choice.message:
+                    continue
+                content = (choice.message.content or "").strip()
+                if content:
+                    passages.append(content)
+                    continue
+                reasoning = getattr(choice.message, "reasoning", None)
+                if isinstance(reasoning, str) and reasoning.strip():
+                    passages.append(reasoning.strip())
+                    continue
+                reasoning_details = getattr(choice.message, "reasoning_details", None)
+                if isinstance(reasoning_details, list):
+                    for detail in reasoning_details:
+                        summary = detail.get("summary") if isinstance(detail, dict) else None
+                        if isinstance(summary, str) and summary.strip():
+                            passages.append(summary.strip())
+                            break
+            self._last_raw_response = raw
+            return passages if passages else None
+        except Exception as exc:
+            last_exc = exc
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+            **extra_headers,
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": message_content}],
+            "temperature": self.temperature,
+            "max_tokens": max_tokens,
+            "n": n,
+            "stream": False,
+        }
+        if self.extra_body:
+            payload.update(self.extra_body)
+
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    f"{self.base_url}/chat/completions", headers=headers, json=payload
+                )
+                response.raise_for_status()
+                data = response.json()
+                self._last_raw_response = data
+                passages = []
+                if "choices" in data:
+                    for choice in data["choices"]:
+                        message = choice.get("message", {})
+                        content = (message.get("content") or "").strip()
+                        if content:
+                            passages.append(content)
+                            continue
+                        reasoning = message.get("reasoning")
+                        if isinstance(reasoning, str) and reasoning.strip():
+                            passages.append(reasoning.strip())
+                            continue
+                        reasoning_details = message.get("reasoning_details")
+                        if isinstance(reasoning_details, list):
+                            for detail in reasoning_details:
+                                summary = detail.get("summary") if isinstance(detail, dict) else None
+                                if isinstance(summary, str) and summary.strip():
+                                    passages.append(summary.strip())
+                                    break
+                return passages if passages else None
+        except Exception as e:
+            if last_exc is not None:
+                raise last_exc
+            raise e
 
     def generate_hypothetical_answer(self, query: str) -> Optional[str]:
         """
@@ -66,6 +180,14 @@ class LLMClient:
         )
         cached = _hyde_cache.get(cache_key)
         if cached:
+            self.last_hyde_debug = {
+                "prompt": prompt,
+                "summary": cached,
+                "error": "",
+                "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                if self._last_raw_response
+                else "",
+            }
             return cached
 
         prompt = (
@@ -76,54 +198,41 @@ class LLMClient:
             f"Passage:"
         )
 
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
-        
-        # Add OpenRouter specific headers
-        if self.provider == "openrouter":
-            headers["HTTP-Referer"] = "https://github.com/lightweight-rag"
-            headers["X-Title"] = "Lightweight RAG"
-
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "n": self.n,
-            "stream": False,
-        }
-        
-        # Add extra_body for OpenRouter/specific models
-        if self.provider == "openrouter":
-             payload["extra_body"] = {"reasoning": {"enabled": False}}
-
         try:
-            with httpx.Client(timeout=self.timeout) as client:
-                response = client.post(
-                    f"{self.base_url}/chat/completions", headers=headers, json=payload
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                # Collect all choices
-                passages = []
-                if "choices" in data:
-                    for choice in data["choices"]:
-                        if "message" in choice and "content" in choice["message"]:
-                            passages.append(choice["message"]["content"].strip())
-                
-                if not passages:
-                    return None
-                    
-                # Join them with spaces to form one large expansion context
-                result = " ".join(passages)
-                _hyde_cache[cache_key] = result
-                return result
+            passages = self._chat_completion(prompt, self.max_tokens, self.n)
+            if not passages:
+                self.last_hyde_debug = {
+                    "prompt": prompt,
+                    "summary": "",
+                    "error": "Empty or missing content in LLM response",
+                    "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                    if self._last_raw_response
+                    else "",
+                }
+                return None
+
+            result = " ".join(passages)
+            _hyde_cache[cache_key] = result
+            self.last_hyde_debug = {
+                "prompt": prompt,
+                "summary": result,
+                "error": "",
+                "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                if self._last_raw_response
+                else "",
+            }
+            return result
                 
         except Exception as e:
             print(f"LLM generation failed (continuing with standard search): {e}")
+            self.last_hyde_debug = {
+                "prompt": prompt,
+                "summary": "",
+                "error": str(e),
+                "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                if self._last_raw_response
+                else "",
+            }
             return None
 
     def generate_summary(self, query: str, chunks: List[str], max_tokens: Optional[int] = None) -> Optional[str]:
@@ -143,51 +252,89 @@ class LLMClient:
             query + "||" + "|".join(chunks),
             "summary",
         )
-        cached = _summary_cache.get(cache_key)
-        if cached:
-            return cached
-
         context = "\n\n".join(f"- {chunk}" for chunk in chunks)
         prompt = (
-            "You are a research assistant. Summarize the relevant information below and answer the user's question.\n"
-            "Be concise and factual. If the answer isn't contained in the context, say so.\n\n"
+            "You are a research assistant. Provide a concise summary answer using ONLY the provided context and NOTHING ELSE.\n"
+            "CRITICAL CONSTRAINTS:\n"
+            "- Do NOT use any external knowledge. If the answer is not explicitly contained in the provided context, you MUST state: \"The provided context does not contain enough information to adequately answer the question.\"\n"
+            "- NO introductions, NO conclusions, and NO meta-commentary.\n"
+            "- STRICTLY NO markdown formatting, NO bolding (**), and NO headings (#).\n"
+            "- Return the result as a SINGLE PARAGRAPH only.\n"
+            "- 1 to 6 sentences maximum.\n"
+            "- Be direct and factual.\n\n"
             f"Question: {query}\n\n"
             f"Context:\n{context}\n\n"
             "Answer:"
         )
 
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
-        if self.provider == "openrouter":
-            headers["HTTP-Referer"] = "https://github.com/lightweight-rag"
-            headers["X-Title"] = "Lightweight RAG"
-
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": self.temperature,
-            "max_tokens": summary_max_tokens,
-            "n": 1,
-            "stream": False,
-        }
-        if self.provider == "openrouter":
-            payload["extra_body"] = {"reasoning": {"enabled": False}}
+        cached = _summary_cache.get(cache_key)
+        if cached:
+            self.last_summary_debug = {
+                "prompt": prompt,
+                "summary": cached,
+                "error": "",
+                "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                if self._last_raw_response
+                else "",
+            }
+            return cached
 
         try:
-            with httpx.Client(timeout=self.timeout) as client:
-                response = client.post(
-                    f"{self.base_url}/chat/completions", headers=headers, json=payload
-                )
-                response.raise_for_status()
-                data = response.json()
-                if "choices" in data and data["choices"]:
-                    content = data["choices"][0]["message"]["content"].strip()
-                    _summary_cache[cache_key] = content
-                    return content
+            passages = self._chat_completion(prompt, summary_max_tokens, 1)
+            if passages:
+                # Normalize response: strip linebreaks and multiple spaces to ensure a single paragraph
+                content = " ".join(passages[0].split())
+                if not content:
+                    error_msg = "Empty content in LLM response"
+                    if self._last_raw_response:
+                        choices = self._last_raw_response.get("choices", [])
+                        if choices and choices[0].get("finish_reason") == "length":
+                            error_msg = "Token limit reached (reasoning was too long). Increased summary.max_tokens in config."
+                    self.last_summary_debug = {
+                        "prompt": prompt,
+                        "summary": "",
+                        "error": error_msg,
+                        "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                        if self._last_raw_response
+                        else "",
+                    }
+                    return None
+                _summary_cache[cache_key] = content
+                self.last_summary_debug = {
+                    "prompt": prompt,
+                    "summary": content,
+                    "error": "",
+                    "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                    if self._last_raw_response
+                    else "",
+                }
+                return content
+            
+            # No passages returned
+            error_msg = "Empty or missing content in LLM response"
+            if self._last_raw_response:
+                choices = self._last_raw_response.get("choices", [])
+                if choices and choices[0].get("finish_reason") == "length":
+                    error_msg = "Token limit reached (reasoning was too long). Increased summary.max_tokens in config."
+
+            self.last_summary_debug = {
+                "prompt": prompt,
+                "summary": "",
+                "error": error_msg,
+                "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                if self._last_raw_response
+                else "",
+            }
         except Exception as e:
             print(f"LLM summary failed (continuing without summary): {e}")
+            self.last_summary_debug = {
+                "prompt": prompt,
+                "summary": "",
+                "error": str(e),
+                "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
+                if self._last_raw_response
+                else "",
+            }
             return None
 
         return None

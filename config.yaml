@@ -21,17 +21,21 @@ llm:
   enabled: true
   provider: "openrouter"          # "openai", "ollama", or "openrouter"
   base_url: "https://openrouter.ai/api/v1"
-  model: "x-ai/grok-4.1-fast:free"
+  model: "openai/gpt-5-mini"
   api_key_env: "OPENROUTER_API_KEY" # Name of env var to load
   temperature: 0.7                # Higher temp for diversity in HyDE
-  max_tokens: 250
+  max_tokens: 500
   n: 5                            # Number of HyDE documents to generate
+  referer: null                   # Optional: site URL for OpenRouter rankings
+  title: null                     # Optional: site title for OpenRouter rankings
+  extra_body: {}                  # Optional: extra body payload for OpenRouter
   use_for_bm25: false             # Add generated text to BM25 search (can be noisy)
   use_for_semantic: true          # Add generated text to Semantic embedding (HyDE)
   summary:
     enabled: true
     top_k: 25
-    max_tokens: 200
+    max_tokens: 10000
+    debug: true
 
 prf:                              # RM3
   enabled: false
@@ -74,7 +78,7 @@ rerank:
     model: "sentence-transformers/all-MiniLM-L6-v2"
     topn: 80                      # Reduced for efficiency (was 120)
     ann:
-      enabled: false
+      enabled: true
       provider: "faiss"
       topn: 200
   final_top_k: 8                  # number of items to return/print
