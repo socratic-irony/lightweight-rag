@@ -60,7 +60,10 @@ def create_error_response(error_message: str, query: str = None) -> Dict[str, An
 
 
 def create_success_response(
-    results: List[Dict[str, Any]], query: str, summary: Optional[str] = None
+    results: List[Dict[str, Any]],
+    query: str,
+    summary: Optional[str] = None,
+    summary_debug: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create a standardized success response."""
     return {
@@ -68,6 +71,7 @@ def create_success_response(
         "query": query,
         "results": results,
         "summary": summary,
+        "summary_debug": summary_debug,
         "error": None,
         "count": len(results),
     }
@@ -78,10 +82,19 @@ def validate_input(data: Dict[str, Any]) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "Input must be a JSON object"
 
-    if "query" not in data:
-        return False, "Missing required field 'query'"
+    # Support 'query' (standard search) or 'summary' (summary generation only)
+    is_summary_request = data.get("type") == "summary"
 
-    if not isinstance(data["query"], str) or not data["query"].strip():
+    if is_summary_request:
+        if "query" not in data:
+            return False, "Missing required field 'query' for summary request"
+        if "chunks" not in data or not isinstance(data["chunks"], list):
+            return False, "Missing or invalid 'chunks' field for summary request"
+    else:
+        if "query" not in data:
+            return False, "Missing required field 'query'"
+
+    if "query" in data and (not isinstance(data["query"], str) or not data["query"].strip()):
         return False, "Field 'query' must be a non-empty string"
 
     if "config" in data and not isinstance(data["config"], dict):
@@ -171,7 +184,7 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
     return cfg
 
 
-async def process_query(query: str, config: Dict[str, Any]) -> Dict[str, Any]:
+async def process_query(query: str, config: Dict[str, Any], request_type: str = "query", chunks: List[str] = None) -> Dict[str, Any]:
     """Process a single query and return formatted response."""
     try:
         # In subprocess mode, suppress all output except the final JSON
@@ -186,8 +199,38 @@ async def process_query(query: str, config: Dict[str, Any]) -> Dict[str, Any]:
             with open(os.devnull, "w") as devnull:
                 sys.stdout = devnull
                 sys.stderr = devnull
-                output = await run_rag_pipeline_with_summary(config, query)
-            return create_success_response(output["results"], query, output.get("summary"))
+                
+                if request_type == "summary":
+                    from .llm import LLMClient
+                    llm_client = LLMClient(config["llm"])
+                    summary_max_tokens = config.get("llm", {}).get("summary", {}).get("max_tokens")
+                    summary = llm_client.generate_summary(query, chunks or [], max_tokens=summary_max_tokens)
+                    
+                    summary_debug = None
+                    if config.get("llm", {}).get("summary", {}).get("debug", False):
+                        summary_debug = {}
+                        if llm_client.last_summary_debug:
+                            prompt = llm_client.last_summary_debug.get("prompt", "")
+                            summary_debug["prompt_excerpt"] = prompt[:100]
+                            summary_debug["full_prompt"] = prompt
+                            summary_debug["summary"] = llm_client.last_summary_debug.get("summary")
+                            summary_debug["error"] = llm_client.last_summary_debug.get("error")
+                            summary_debug["raw_response"] = llm_client.last_summary_debug.get("raw_response")
+                    
+                    return create_success_response(
+                        [], 
+                        query,
+                        summary,
+                        summary_debug
+                    )
+                else:
+                    output = await run_rag_pipeline_with_summary(config, query)
+                    return create_success_response(
+                        output["results"],
+                        query,
+                        output.get("summary"),
+                        output.get("summary_debug"),
+                    )
         finally:
             sys.stdout = original_stdout
             sys.stderr = original_stderr
@@ -210,6 +253,8 @@ def main():
             sys.exit(1)
 
         query = input_data["query"]
+        request_type = input_data.get("type", "query")
+        chunks = input_data.get("chunks", [])
         config_data = input_data.get("config", {})
         config_file = input_data.get("config_file")
 
@@ -217,7 +262,7 @@ def main():
         config = process_config(config_data, config_file)
 
         # Process query
-        response = asyncio.run(process_query(query, config))
+        response = asyncio.run(process_query(query, config, request_type, chunks))
 
         # Output response
         print(json.dumps(response, ensure_ascii=False))

@@ -158,7 +158,9 @@ def search_topk(
     return final_results
 
 
-async def _run_rag_pipeline_internal(cfg: Dict[str, Any], query: str) -> tuple[List[Dict[str, Any]], Optional[str]]:
+async def _run_rag_pipeline_internal(
+    cfg: Dict[str, Any], query: str
+) -> tuple[List[Dict[str, Any]], Optional[str], Optional[Dict[str, Any]]]:
     """
     Run the complete RAG pipeline with the given configuration and query.
     Returns (results, summary).
@@ -269,27 +271,47 @@ async def _run_rag_pipeline_internal(cfg: Dict[str, Any], query: str) -> tuple[L
         results = sort_results_deterministically(results)
 
     summary = None
+    summary_debug = None
+    
+    if llm_client is not None and summary_cfg.get("debug", False):
+        summary_debug = {}
+    
     if summary_enabled and results and llm_client is not None:
         chunk_texts = [r["text"] for r in results[: min(summary_top_k, len(results))]]
         summary = llm_client.generate_summary(
             query, chunk_texts, max_tokens=summary_cfg.get("max_tokens")
         )
+        if summary_debug is not None and llm_client.last_summary_debug:
+            prompt = llm_client.last_summary_debug.get("prompt", "")
+            summary_debug["prompt_excerpt"] = prompt[:100]
+            summary_debug["full_prompt"] = prompt
+            summary_debug["summary"] = llm_client.last_summary_debug.get("summary")
+            summary_debug["error"] = llm_client.last_summary_debug.get("error")
+            summary_debug["raw_response"] = llm_client.last_summary_debug.get("raw_response")
 
-    return results[:result_top_k], summary
+    # Always include HyDE debug info if LLM and debug are enabled, even if summary is off
+    if summary_debug is not None and llm_client is not None and llm_client.last_hyde_debug:
+        hyde_prompt = llm_client.last_hyde_debug.get("prompt", "")
+        summary_debug["hyde_prompt_excerpt"] = hyde_prompt[:100]
+        summary_debug["hyde_result"] = llm_client.last_hyde_debug.get("summary")
+        summary_debug["hyde_error"] = llm_client.last_hyde_debug.get("error")
+        summary_debug["hyde_raw_response"] = llm_client.last_hyde_debug.get("raw_response")
+
+    return results[:result_top_k], summary, summary_debug
 
 
 async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, Any]]:
     """
     Run the complete RAG pipeline with the given configuration and query.
     """
-    results, _summary = await _run_rag_pipeline_internal(cfg, query)
+    results, _summary, _summary_debug = await _run_rag_pipeline_internal(cfg, query)
     return results
 
 
 async def run_rag_pipeline_with_summary(cfg: Dict[str, Any], query: str) -> Dict[str, Any]:
     """Run the pipeline and return results plus summary."""
-    results, summary = await _run_rag_pipeline_internal(cfg, query)
-    return {"results": results, "summary": summary}
+    results, summary, summary_debug = await _run_rag_pipeline_internal(cfg, query)
+    return {"results": results, "summary": summary, "summary_debug": summary_debug}
 
 
 def query_pdfs(query: str, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
