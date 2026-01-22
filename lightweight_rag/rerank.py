@@ -195,17 +195,16 @@ def _encode_single_text(model: "SentenceTransformer", text: str) -> "np.ndarray"
     return _normalize(embedding)
 
 
-def _get_query_embedding(query: str, model: "SentenceTransformer", model_name: str) -> Optional["np.ndarray"]:
+def _get_query_embedding(query: str, model_name: str) -> Optional["np.ndarray"]:
     cache_key = f"{model_name}::{query}"
     with _query_cache_lock:
         cached = _query_embedding_cache.get(cache_key)
         if cached is not None:
             return cached
-    try:
-        embedding = _encode_single_text(model, query)
-    except Exception as exc:
-        print(f"Failed to encode query during semantic rerank: {exc}")
+    query_embedding = embed_texts([query], model_name)
+    if query_embedding is None:
         return None
+    embedding = query_embedding[0]
     with _query_cache_lock:
         _query_embedding_cache[cache_key] = embedding
     return embedding
@@ -275,7 +274,7 @@ def semantic_rerank(
     if model is None:
         return scores
 
-    query_emb = _get_query_embedding(query, model, model_name)
+    query_emb = _get_query_embedding(query, model_name)
     if query_emb is None:
         return scores
 
