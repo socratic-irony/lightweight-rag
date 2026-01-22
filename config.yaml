@@ -73,6 +73,10 @@ rerank:
     enabled: true
     model: "sentence-transformers/all-MiniLM-L6-v2"
     topn: 80                      # Reduced for efficiency (was 120)
+    ann:
+      enabled: false
+      provider: "faiss"
+      topn: 200
   final_top_k: 8                  # number of items to return/print
 
 fusion:

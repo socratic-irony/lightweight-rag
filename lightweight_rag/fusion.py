@@ -153,6 +153,21 @@ def build_ranking_runs(
         # Semantic rerank returns new scores; we need to re-sort
         # Use semantic_query if provided (e.g. HyDE), otherwise original query
         query_for_semantic = semantic_query if semantic_query else query
+        ann_config = semantic_config.get("ann", {}) if isinstance(semantic_config, dict) else {}
+        if ann_config.get("enabled", False):
+            from .semantic_index import ann_select_candidates
+
+            ann_topn = min(int(ann_config.get("topn", topn)), len(corpus))
+            ann_candidates = ann_select_candidates(
+                [chunk.text for chunk in corpus],
+                query_for_semantic,
+                ann_topn,
+                semantic_config.get("model", "sentence-transformers/all-MiniLM-L6-v2"),
+            )
+            if ann_candidates:
+                candidates_for_semantic = ann_candidates
+                candidate_texts = [corpus[i].text for i in candidates_for_semantic]
+                candidate_scores = [baseline_scores[i] for i in candidates_for_semantic]
         reranked_scores = semantic_rerank(query_for_semantic, candidate_texts, candidate_scores)
 
         # Create mapping from index to new score
@@ -161,9 +176,11 @@ def build_ranking_runs(
             for i in range(len(candidates_for_semantic))
         }
 
-        # Sort pool by semantic scores (candidates not in semantic keep original scores)
+        # Sort semantic candidates by semantic scores
         run_semantic = sorted(
-            pool, key=lambda i: score_map.get(i, baseline_scores[i]), reverse=True
+            candidates_for_semantic,
+            key=lambda i: score_map.get(i, baseline_scores[i]),
+            reverse=True,
         )
         runs.append(run_semantic)
 

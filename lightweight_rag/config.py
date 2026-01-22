@@ -101,6 +101,11 @@ def get_default_config() -> Dict[str, Any]:
                 "enabled": True,
                 "model": "sentence-transformers/all-MiniLM-L6-v2",
                 "topn": 80,
+                "ann": {
+                    "enabled": False,
+                    "provider": "faiss",
+                    "topn": 200,
+                },
             },
             "final_top_k": 20,
         },
