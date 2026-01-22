@@ -31,6 +31,23 @@ def get_default_config() -> Dict[str, Any]:
             "pool_size": 200,
             "token_pattern": "[A-Za-z0-9]+",
         },
+        "llm": {
+            "enabled": False,
+            "provider": "openrouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "model": "x-ai/grok-4.1-fast:free",
+            "api_key_env": "OPENROUTER_API_KEY",
+            "temperature": 0.7,
+            "max_tokens": 250,
+            "n": 5,
+            "use_for_bm25": False,
+            "use_for_semantic": True,
+            "summary": {
+                "enabled": False,
+                "top_k": 25,
+                "max_tokens": 200,
+            },
+        },
         "prf": {
             "enabled": False,
             "fb_docs": 6,

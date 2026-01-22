@@ -13,11 +13,11 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .config import get_default_config, load_config, merge_configs
 from .environment import adapt_config_for_environment
-from .main import run_rag_pipeline
+from .main import run_rag_pipeline_with_summary
 
 # Apply conservative threading/locking env before anything heavy loads
 _THREAD_ENV_DEFAULTS = {
@@ -59,12 +59,15 @@ def create_error_response(error_message: str, query: str = None) -> Dict[str, An
     return {"success": False, "query": query, "results": [], "error": error_message, "count": 0}
 
 
-def create_success_response(results: List[Dict[str, Any]], query: str) -> Dict[str, Any]:
+def create_success_response(
+    results: List[Dict[str, Any]], query: str, summary: Optional[str] = None
+) -> Dict[str, Any]:
     """Create a standardized success response."""
     return {
         "success": True,
         "query": query,
         "results": results,
+        "summary": summary,
         "error": None,
         "count": len(results),
     }
@@ -183,8 +186,8 @@ async def process_query(query: str, config: Dict[str, Any]) -> Dict[str, Any]:
             with open(os.devnull, "w") as devnull:
                 sys.stdout = devnull
                 sys.stderr = devnull
-                results = await run_rag_pipeline(config, query)
-            return create_success_response(results, query)
+                output = await run_rag_pipeline_with_summary(config, query)
+            return create_success_response(output["results"], query, output.get("summary"))
         finally:
             sys.stdout = original_stdout
             sys.stderr = original_stderr

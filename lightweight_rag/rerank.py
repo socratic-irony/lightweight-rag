@@ -17,6 +17,8 @@ _model_name = None
 _model_lock = Lock()
 _embedding_cache: Dict[str, "np.ndarray"] = {}
 _cache_lock = Lock()
+_query_embedding_cache: Dict[str, "np.ndarray"] = {}
+_query_cache_lock = Lock()
 
 
 def tokenize_for_rerank(text: str) -> List[str]:
@@ -193,6 +195,22 @@ def _encode_single_text(model: "SentenceTransformer", text: str) -> "np.ndarray"
     return _normalize(embedding)
 
 
+def _get_query_embedding(query: str, model: "SentenceTransformer", model_name: str) -> Optional["np.ndarray"]:
+    cache_key = f"{model_name}::{query}"
+    with _query_cache_lock:
+        cached = _query_embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
+    try:
+        embedding = _encode_single_text(model, query)
+    except Exception as exc:
+        print(f"Failed to encode query during semantic rerank: {exc}")
+        return None
+    with _query_cache_lock:
+        _query_embedding_cache[cache_key] = embedding
+    return embedding
+
+
 def _chunk_embeddings(
     texts: List[str],
     model: "SentenceTransformer",
@@ -257,8 +275,8 @@ def semantic_rerank(
     if model is None:
         return scores
 
-    query_embedding = embed_texts([query], model_name)
-    if query_embedding is None:
+    query_emb = _get_query_embedding(query, model, model_name)
+    if query_emb is None:
         return scores
 
     chunk_embeddings = _chunk_embeddings(texts, model, max_workers)
@@ -266,7 +284,6 @@ def semantic_rerank(
         return scores
 
     # Calculate cosine similarities (already normalized)
-    query_emb = query_embedding[0]
     text_embs = np.vstack(chunk_embeddings)
 
     similarities = text_embs.dot(query_emb).flatten()

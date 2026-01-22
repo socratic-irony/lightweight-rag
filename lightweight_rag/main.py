@@ -158,22 +158,19 @@ def search_topk(
     return final_results
 
 
-async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, Any]]:
+async def _run_rag_pipeline_internal(cfg: Dict[str, Any], query: str) -> tuple[List[Dict[str, Any]], Optional[str]]:
     """
     Run the complete RAG pipeline with the given configuration and query.
+    Returns (results, summary).
     """
-    # Initialize performance settings
     from .performance import seed_numpy, sort_results_deterministically
 
-    # Seed numpy for deterministic behavior
     if cfg["performance"]["deterministic"] and cfg["performance"]["numpy_seed"]:
         seed_numpy(cfg["performance"]["numpy_seed"])
 
-    # Update cache paths from config
     cache_dir = Path(cfg["paths"]["cache_dir"])
     update_cache_paths(cache_dir)
 
-    # Build or load corpus
     pdf_dir = Path(cfg["paths"]["pdf_dir"])
     corpus = await build_corpus(
         pdf_dir,
@@ -186,38 +183,33 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
 
     if not corpus:
         print("No documents found or processed.")
-        return []
+        return [], None
 
-    # Build BM25 index with configurable parameters
     token_pattern = cfg["bm25"]["token_pattern"]
     k1 = cfg["bm25"]["k1"]
     b = cfg["bm25"]["b"]
     bm25, tokenized = build_bm25(corpus, token_pattern, k1, b)
     print(f"Indexed {len(corpus)} chunks")
 
-    # Initialize retrieval query with original query
     bm25_query = query
     semantic_query = None
+    llm_client = None
 
-    # LLM-based HyDE expansion
     if cfg.get("llm", {}).get("enabled", False):
         from .llm import LLMClient
+
         llm_client = LLMClient(cfg["llm"])
         print("Generating hypothetical answer for query expansion...")
         hypothetical = llm_client.generate_hypothetical_answer(query)
         if hypothetical:
             print(f"[HyDE] Generated passage: {hypothetical[:100]}...")
-            
-            # Apply to BM25 if enabled
+
             if cfg["llm"].get("use_for_bm25", True):
                 bm25_query = f"{query} {hypothetical}"
-                
-            # Apply to Semantic Reranking if enabled
+
             if cfg["llm"].get("use_for_semantic", False):
-                # Combine query and hypothetical for richer semantic matching
                 semantic_query = f"{query} {hypothetical}"
 
-    # Query expansion with RM3 if enabled
     if cfg["prf"]["enabled"]:
         bm25_query = rm3_expand_query(
             bm25_query,
@@ -231,15 +223,22 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         if bm25_query != query:
             print(f"\n[RM3] Expanded query terms added.")
 
-    # Search with all configured options
+    summary_cfg = cfg.get("llm", {}).get("summary", {})
+    summary_enabled = bool(cfg.get("llm", {}).get("enabled", False)) and bool(
+        summary_cfg.get("enabled", False)
+    )
+    summary_top_k = int(summary_cfg.get("top_k", 25)) if summary_enabled else 0
+    result_top_k = int(cfg["rerank"]["final_top_k"])
+    search_k = max(result_top_k, summary_top_k) if summary_enabled else result_top_k
+
     results = search_topk(
         corpus=corpus,
         bm25=bm25,
         tokenized=tokenized,
-        query=query,  # Use original query for scoring/bonuses
-        bm25_query=bm25_query,  # Use expanded query for retrieval
-        semantic_query=semantic_query, # Use expanded query for semantic reranking
-        k=cfg["rerank"]["final_top_k"],
+        query=query,
+        bm25_query=bm25_query,
+        semantic_query=semantic_query,
+        k=search_k,
         prox_window=(
             0
             if not cfg["bonuses"]["proximity"]["enabled"]
@@ -262,15 +261,35 @@ async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, An
         include_scores=cfg["output"]["include_scores"],
         include_pandoc_cite=cfg["citations"].get("include_pandoc_cite", False),
         use_pandoc_as_primary=cfg["citations"].get("pandoc_as_primary", False),
-        fusion_config=cfg,  # Pass full config for fusion
-        prf_config=cfg["prf"],  # Pass PRF config separately
+        fusion_config=cfg,
+        prf_config=cfg["prf"],
     )
 
-    # Apply deterministic sorting if enabled
     if cfg["performance"]["deterministic"]:
         results = sort_results_deterministically(results)
 
+    summary = None
+    if summary_enabled and results and llm_client is not None:
+        chunk_texts = [r["text"] for r in results[: min(summary_top_k, len(results))]]
+        summary = llm_client.generate_summary(
+            query, chunk_texts, max_tokens=summary_cfg.get("max_tokens")
+        )
+
+    return results[:result_top_k], summary
+
+
+async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, Any]]:
+    """
+    Run the complete RAG pipeline with the given configuration and query.
+    """
+    results, _summary = await _run_rag_pipeline_internal(cfg, query)
     return results
+
+
+async def run_rag_pipeline_with_summary(cfg: Dict[str, Any], query: str) -> Dict[str, Any]:
+    """Run the pipeline and return results plus summary."""
+    results, summary = await _run_rag_pipeline_internal(cfg, query)
+    return {"results": results, "summary": summary}
 
 
 def query_pdfs(query: str, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
