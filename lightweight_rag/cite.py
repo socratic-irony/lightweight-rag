@@ -17,12 +17,46 @@ def _print_quiet(message: str, config: Optional[Dict[str, Any]] = None) -> None:
         print(message)
 
 
+async def _get_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    timeout: int = 20,
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+) -> Optional[httpx.Response]:
+    """Execute GET request with simple exponential backoff retry."""
+    for i in range(max_retries):
+        try:
+            response = await client.get(url, timeout=timeout)
+            if response.status_code == 404:
+                return response
+            response.raise_for_status()
+            return response
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+            if i == max_retries - 1:
+                print(f"Final retry failed for {url}: {e}")
+                return None
+            if isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (429, 500, 502, 503, 504):
+                wait = retry_delay * (2**i)
+                await asyncio.sleep(wait)
+                continue
+            elif isinstance(e, httpx.RequestError):
+                wait = retry_delay * (2**i)
+                await asyncio.sleep(wait)
+                continue
+            else:
+                return None
+    return None
+
+
 async def crossref_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional[DocMeta]:
     """Fetch document metadata from Crossref API."""
     url = f"https://api.crossref.org/works/{doi}"
     try:
-        r = await client.get(url, timeout=20)
-        r.raise_for_status()
+        r = await _get_with_retry(client, url)
+        if not r or r.status_code != 200:
+            return None
+            
         item = r.json().get("message", {})
 
         title = (item.get("title") or [""])[0] or None
@@ -71,8 +105,10 @@ async def openalex_meta_for_doi(client: httpx.AsyncClient, doi: str) -> Optional
     """Fetch document metadata from OpenAlex API."""
     url = f"https://api.openalex.org/works/https://doi.org/{doi}"
     try:
-        r = await client.get(url, timeout=20)
-        r.raise_for_status()
+        r = await _get_with_retry(client, url)
+        if not r or r.status_code != 200:
+            return None
+            
         work = r.json()
 
         # Extract venue information
@@ -117,8 +153,10 @@ async def unpaywall_meta_for_doi(
     """Fetch document metadata from Unpaywall API."""
     url = f"https://api.unpaywall.org/v2/{doi}?email={email}"
     try:
-        r = await client.get(url, timeout=20)
-        r.raise_for_status()
+        r = await _get_with_retry(client, url)
+        if not r or r.status_code != 200:
+            return None
+            
         data = r.json()
 
         # Extract the best OA location

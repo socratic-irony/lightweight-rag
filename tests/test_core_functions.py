@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import functions from the modular structure
 from lightweight_rag.index import tokenize
 from lightweight_rag.models import window, find_doi_in_text, DOI_RE, ANSWER_PATTERNS, STOP
-from lightweight_rag.scoring import ngram_bonus, proximity_bonus, pattern_bonus
+from lightweight_rag.scoring import metadata_bonus, ngram_bonus, proximity_bonus, pattern_bonus
 from lightweight_rag.io_pdf import create_sliding_windows
 
 
@@ -302,3 +302,32 @@ class TestCreateSlidingWindows:
         text = f"intro {long_word} outro"
         windows = create_sliding_windows(text, window_chars=10, overlap_chars=5)
         assert any(long_word in win for win in windows)
+
+
+class TestMetadataBonus:
+    """Test the metadata_bonus function."""
+    
+    def test_abstract_boost(self):
+        """Test that Abstract section is boosted."""
+        text = "Abstract: This study explores..."
+        bonus = metadata_bonus(text)
+        assert bonus >= 0.15
+        
+    def test_conclusion_boost(self):
+        """Test that Conclusion section is boosted."""
+        text = "Conclusion: In summary, we found..."
+        bonus = metadata_bonus(text)
+        assert bonus >= 0.1
+        
+    def test_title_match_boost(self):
+        """Test that title matches are boosted."""
+        title = "Impact of AI on Society"
+        text = "The Impact of AI on Society"  # Very similar to title
+        bonus = metadata_bonus(text, doc_title=title)
+        assert bonus >= 0.2
+        
+    def test_no_bonus(self):
+        """Test that generic text gets no bonus."""
+        text = "This is just some regular content in the middle of a paper."
+        bonus = metadata_bonus(text)
+        assert bonus == 0.0

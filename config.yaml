@@ -29,7 +29,7 @@ llm:
   referer: null                   # Optional: site URL for OpenRouter rankings
   title: null                     # Optional: site title for OpenRouter rankings
   extra_body: {}                  # Optional: extra body payload for OpenRouter
-  use_for_bm25: false             # Add generated text to BM25 search (can be noisy)
+  use_for_bm25: true              # Add generated text to BM25 search (can be noisy)
   use_for_semantic: true          # Add generated text to Semantic embedding (HyDE)
   summary:
     enabled: true

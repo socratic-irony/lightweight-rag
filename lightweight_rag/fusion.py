@@ -96,6 +96,17 @@ def build_ranking_runs(
     run_base = sorted(pool, key=lambda i: baseline_scores[i], reverse=True)
     runs.append(run_base)
 
+    # Run: Multi-HyDE diversity runs (optional)
+    # If we have multiple HyDE queries, we can create a run for each to diversify results
+    hyde_queries = config.get("llm", {}).get("hyde_queries", [])
+    if isinstance(hyde_queries, list) and len(hyde_queries) > 1:
+        # Limit to top 3 HyDE variants to avoid excessive runs
+        for i, hyde_q in enumerate(hyde_queries[:3]):
+            # Expansion variant: original query + this hypothetical answer
+            expanded = f"{query} {hyde_q}"
+            run_hyde = rank_by_bm25_order(bm25, expanded, pool, tokenized)
+            runs.append(run_hyde)
+
     # Run B: RM3 pseudo-relevance feedback (optional)
     if config.get("prf", {}).get("enabled", False):
         from .prf import rm3_expand_query

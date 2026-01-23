@@ -13,6 +13,7 @@ from .prf import rm3_expand_query
 from .scoring import (
     fuzzy_match_bonus,
     gibberish_penalty,
+    metadata_bonus,
     ngram_bonus,
     pattern_bonus,
     proximity_bonus,
@@ -20,7 +21,7 @@ from .scoring import (
 
 
 def calibrate_confidence(
-    scores: List[float],
+    scores: Any,
     runs: List[List[int]],
     pool: List[int],
     top_k: int = 8,
@@ -38,8 +39,21 @@ def calibrate_confidence(
             "reason": "No results",
         }
 
-    # 1. Score spread: top score vs median of the candidate pool
-    pool_scores = [scores[i] for i in pool]
+    # Handle both list of scores and dictionary of scores
+    if isinstance(scores, dict):
+        pool_scores = [scores.get(i, 0.0) for i in pool]
+    else:
+        pool_scores = [scores[i] for i in pool]
+        
+    if not pool_scores:
+        return {
+            "level": "low",
+            "score": 0.0,
+            "spread": 0.0,
+            "stability": 0.0,
+            "reason": "No results",
+        }
+
     top_score = max(pool_scores)
 
     # Sort pool scores to find median
@@ -138,6 +152,9 @@ def search_topk(
 
         # Pattern bonus
         scores[i] += pattern_bonus(chunk.text)
+        
+        # Metadata bonus (title, abstract, results, conclusion)
+        scores[i] += metadata_bonus(chunk.text, doc_title=chunk.meta.title)
         
         # Gibberish penalty (multiplicative)
         gib_penalty = gibberish_penalty(chunk.text, threshold=0.20)
@@ -266,21 +283,30 @@ async def _run_rag_pipeline_internal(
     bm25_query = query
     semantic_query = None
     llm_client = None
+    hyde_passages = []
 
     if cfg.get("llm", {}).get("enabled", False):
         from .llm import LLMClient
 
         llm_client = LLMClient(cfg["llm"])
-        print("Generating hypothetical answer for query expansion...")
-        hypothetical = llm_client.generate_hypothetical_answer(query)
-        if hypothetical:
-            print(f"[HyDE] Generated passage: {hypothetical[:100]}...")
-
+        print("Generating hypothetical answers for query expansion...")
+        hyde_passages = llm_client.generate_hypothetical_answers(query)
+        
+        if hyde_passages:
+            print(f"[HyDE] Generated {len(hyde_passages)} hypothetical passages.")
+            
+            # Use joined passages for primary expansion if enabled
+            hypothetical_joined = " ".join(hyde_passages)
             if cfg["llm"].get("use_for_bm25", True):
-                bm25_query = f"{query} {hypothetical}"
-
+                bm25_query = f"{query} {hypothetical_joined}"
+            
             if cfg["llm"].get("use_for_semantic", False):
-                semantic_query = f"{query} {hypothetical}"
+                semantic_query = f"{query} {hypothetical_joined}"
+            
+            # If multiple passages generated, we can pass them as a list for diversity runs
+            if len(hyde_passages) > 1:
+                # We'll pass the list via hyde_queries in config or as a special param
+                cfg["llm"]["hyde_queries"] = hyde_passages
 
     if cfg["prf"]["enabled"]:
         bm25_query = rm3_expand_query(

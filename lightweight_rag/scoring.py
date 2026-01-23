@@ -2,7 +2,7 @@
 
 import re
 from difflib import SequenceMatcher
-from typing import List
+from typing import List, Optional
 
 from .index import tokenize
 from .models import ANSWER_PATTERNS
@@ -82,6 +82,38 @@ def pattern_bonus(text: str) -> float:
     """
     text_lower = text.lower()
     return sum(1 for p in ANSWER_PATTERNS if p in text_lower) * 0.05
+
+
+def metadata_bonus(text: str, doc_title: Optional[str] = None) -> float:
+    """
+    Boost chunks that appear to be from important sections like
+    Abstract, Results, or Conclusion based on heuristics.
+    """
+    bonus = 0.0
+    text_lower = text.lower().strip()
+
+    # Abstract boost
+    if text_lower.startswith("abstract") or "abstract" in text_lower[:50]:
+        bonus += 0.15
+
+    # Results/Conclusion boost
+    important_sections = ["result", "conclusion", "summary", "discussion"]
+    for section in important_sections:
+        if section in text_lower[:60]:
+            bonus += 0.1
+            break
+
+    # Title match boost (if the chunk *is* the title or contains it prominently)
+    if doc_title:
+        title_lower = doc_title.lower().strip()
+        if title_lower in text_lower:
+            # If the chunk is very short and matches the title, it's likely a title/header
+            if len(text_lower) < len(title_lower) + 20:
+                bonus += 0.2
+            else:
+                bonus += 0.05
+
+    return bonus
 
 
 def gibberish_penalty(text: str, threshold: float = 0.20) -> float:

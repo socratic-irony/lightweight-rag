@@ -159,13 +159,13 @@ class LLMClient:
                 raise last_exc
             raise e
 
-    def generate_hypothetical_answer(self, query: str) -> Optional[str]:
+    def generate_hypothetical_answers(self, query: str) -> List[str]:
         """
-        Generate hypothetical answer(s) to the query.
-        Returns None if disabled or if the call fails.
+        Generate multiple hypothetical answers to the query.
+        Returns an empty list if disabled or if the call fails.
         """
         if not self.enabled:
-            return None
+            return []
 
         prompt = (
             f"Write a short, concise hypothetical passage that answers the following question. "
@@ -184,13 +184,13 @@ class LLMClient:
                 "provider": self.provider,
             },
             query,
-            "hyde",
+            "hyde_list",
         )
         cached = _hyde_cache.get(cache_key)
-        if cached:
+        if cached and isinstance(cached, list):
             self.last_hyde_debug = {
                 "prompt": prompt,
-                "summary": cached,
+                "summary": " ".join(cached),
                 "error": "",
                 "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
                 if self._last_raw_response
@@ -209,19 +209,18 @@ class LLMClient:
                     if self._last_raw_response
                     else "",
                 }
-                return None
+                return []
 
-            result = " ".join(passages)
-            _hyde_cache[cache_key] = result
+            _hyde_cache[cache_key] = passages
             self.last_hyde_debug = {
                 "prompt": prompt,
-                "summary": result,
+                "summary": " ".join(passages),
                 "error": "",
                 "raw_response": json.dumps(self._last_raw_response, default=str)[:4000]
                 if self._last_raw_response
                 else "",
             }
-            return result
+            return passages
                 
         except Exception as e:
             print(f"LLM generation failed (continuing with standard search): {e}")
@@ -233,7 +232,15 @@ class LLMClient:
                 if self._last_raw_response
                 else "",
             }
-            return None
+            return []
+
+    def generate_hypothetical_answer(self, query: str) -> Optional[str]:
+        """
+        Generate hypothetical answer(s) to the query and return as a single string.
+        Returns None if disabled or if the call fails.
+        """
+        passages = self.generate_hypothetical_answers(query)
+        return " ".join(passages) if passages else None
 
     def generate_summary(self, query: str, chunks: List[str], max_tokens: Optional[int] = None) -> Optional[str]:
         """Generate a concise summary from retrieved chunks."""

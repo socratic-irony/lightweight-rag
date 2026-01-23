@@ -1,30 +1,34 @@
 {
-  "10.1177/10398562231156684": {
+  "10.3389/fpsyg.2023.1054692": {
     "crossref": {
-      "title": "The prescription of psychedelic therapies in Australia and New Zealand: A brief survey of psychiatrists",
+      "title": "Back from the rabbit hole. Theoretical considerations and practical guidelines on psychedelic integration for mental health specialists",
       "authors": [
-        "Berger, Joshua J",
-        "Fitzgerald, Paul B"
+        "Gre\u0144, Jakub",
+        "Tyl\u0161, Filip",
+        "Lasocik, Micha\u0142",
+        "Kiraly, Csaba"
       ],
       "year": 2023,
-      "start_page": 190
+      "start_page": null
     },
     "openalex": {
-      "venue": "Australasian Psychiatry",
+      "venue": "Frontiers in Psychology",
       "publisher": null,
       "concepts": [
-        "Context (archaeology)",
-        "Medical prescription",
-        "Psychiatry",
-        "Medicine",
         "Psychology",
+        "Psychological intervention",
+        "Mental health",
+        "Presentation (obstetrics)",
         "Scope (computer science)",
-        "Family medicine",
-        "Clinical psychology"
+        "Intervention (counseling)",
+        "Resource (disambiguation)",
+        "Psychotherapist",
+        "Medical education",
+        "Applied psychology"
       ],
-      "oa_url": "https://doi.org/10.1177/10398562231156684"
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1054692/pdf?isPublishedV2=False"
     },
-    "updated_at": "2026-01-22T03:51:07.498603+00:00"
+    "updated_at": "2026-01-23T05:11:12.920238+00:00"
   },
   "10.1007/s12152-024-09550-9": {
     "crossref": {
@@ -45,71 +49,145 @@
       ],
       "oa_url": "https://link.springer.com/content/pdf/10.1007/s12152-024-09550-9.pdf"
     },
-    "updated_at": "2026-01-22T03:51:07.500064+00:00"
+    "updated_at": "2026-01-23T05:11:12.956728+00:00"
   },
-  "10.1556/2054.2022.00202": {
+  "10.1017/S0033291722003191": {
     "crossref": {
-      "title": "Psychological effects and subjective experiences of ayahuasca rituals in participants of two neoshamanic centers of Uruguay",
+      "title": "Is good science leading the way in the therapeutic use of psychedelic drugs?",
       "authors": [
-        "Apud, Ismael",
-        "Scuro, Juan",
-        "Carrera, Ignacio",
-        "Oliveri, Andres"
+        "Hall, Wayne D.",
+        "Humphreys, Keith"
       ],
       "year": 2022,
-      "start_page": 72
+      "start_page": 2849
     },
     "openalex": {
-      "venue": "Journal of Psychedelic Studies",
+      "venue": "Psychological Medicine",
+      "publisher": null,
+      "concepts": [
+        "Content (measure theory)",
+        "Action (physics)",
+        "Psychology",
+        "Computer science"
+      ],
+      "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/F3FDF49E14AAF4D12036BFFC047357B4/S0033291722003191a.pdf/div-class-title-is-good-science-leading-the-way-in-the-therapeutic-use-of-psychedelic-drugs-div.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:12.958689+00:00"
+  },
+  "10.1038/s41598-023-36184-3": {
+    "crossref": {
+      "title": "Prevalence and therapeutic impact of adverse life event reexperiencing under ceremonial ayahuasca",
+      "authors": [
+        "Weiss, Brandon",
+        "Wingert, Aleksandra",
+        "Erritzoe, David",
+        "Campbell, W. Keith"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Scientific Reports",
       "publisher": null,
       "concepts": [
         "Ayahuasca",
         "Psychology",
-        "Cognition",
-        "Perception",
-        "Affect (linguistics)",
         "Clinical psychology",
-        "Qualitative research",
-        "Hallucinogen",
-        "Rating scale",
-        "Qualitative property"
+        "Adverse effect",
+        "Psychiatry"
       ],
-      "oa_url": "https://akjournals.com/downloadpdf/journals/2054/6/2/article-p72.pdf"
+      "oa_url": "https://www.nature.com/articles/s41598-023-36184-3.pdf"
     },
-    "updated_at": "2026-01-22T03:51:07.504603+00:00"
+    "updated_at": "2026-01-23T05:11:12.974992+00:00"
   },
-  "10.1186/s40309-022-00199-2": {
+  "10.3390/philosophies8050076": {
     "crossref": {
-      "title": "Socio-psychedelic imaginaries: envisioning and building legal psychedelic worlds in the United States",
+      "title": "Ethics of Psychedelic Use in Psychiatry and Beyond\u2014Drawing upon Legal, Social and Clinical Challenges",
       "authors": [
-        "Schwarz-Plaschg, Claudia"
+        "Azevedo, Nuno",
+        "Oliveira Da Silva, Miguel",
+        "Madeira, Lu\u00eds"
       ],
-      "year": 2022,
+      "year": 2023,
+      "start_page": 76
+    },
+    "openalex": {
+      "venue": "Philosophies",
+      "publisher": null,
+      "concepts": [
+        "Criminalization",
+        "Psychology",
+        "Harm",
+        "Subject (documents)",
+        "Psychotherapist",
+        "Psychiatry",
+        "MEDLINE"
+      ],
+      "oa_url": "https://www.mdpi.com/2409-9287/8/5/76/pdf?version=1692855632"
+    },
+    "updated_at": "2026-01-23T05:11:13.198766+00:00"
+  },
+  "10.1038/s41591-023-02378-5": {
+    "crossref": {
+      "title": "Psychedelic treatments for mental health conditions pose challenges for informed consent",
+      "authors": [
+        "Seybert, Carolina",
+        "Cotovio, Gon\u00e7alo",
+        "Madeira, Lu\u00eds",
+        "Ricou, Miguel",
+        "Pires, Ana Matos",
+        "Oliveira-Maia, Albino J."
+      ],
+      "year": 2023,
+      "start_page": 2167
+    },
+    "openalex": {
+      "venue": "Nature Medicine",
+      "publisher": null,
+      "concepts": [
+        "Mental health",
+        "Medicine",
+        "Psychology",
+        "Psychiatry",
+        "Alternative medicine"
+      ],
+      "oa_url": "https://www.nature.com/articles/s41591-023-02378-5.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:13.240996+00:00"
+  },
+  "10.3389/fpsyg.2013.00753": {
+    "crossref": {
+      "title": "The induction of synaesthesia with chemical agents: a systematic review",
+      "authors": [
+        "Luke, David P.",
+        "Terhune, Devin B."
+      ],
+      "year": 2013,
       "start_page": null
     },
     "openalex": {
-      "venue": "European Journal of Futures Research",
+      "venue": "Frontiers in Psychology",
       "publisher": null,
       "concepts": [
-        "The Imaginary",
-        "Legalization",
-        "Politics",
-        "Decriminalization",
-        "Criminalization",
-        "Sociology",
-        "Hallucinogen",
-        "Criminology",
-        "Political science"
+        "Neurochemical",
+        "Psychology",
+        "Neuroscience",
+        "Cognitive psychology"
       ],
-      "oa_url": "https://eujournalfuturesresearch.springeropen.com/track/pdf/10.1186/s40309-022-00199-2"
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2013.00753/pdf"
     },
-    "updated_at": "2026-01-22T03:51:07.533600+00:00"
+    "updated_at": "2026-01-23T05:11:13.287044+00:00"
   },
-  "10.3389/fpsyg.2023.1104627": {
+  "10.3389/fpsyg.2023.1119115": {
     "crossref": {
-      "title": "Psychedelic unselfing: self-transcendence and change of values in psychedelic experiences",
+      "title": "ARC: a framework for access, reciprocity and conduct in psychedelic therapies",
       "authors": [
-        "K\u00e4h\u00f6nen, Juuso"
+        "Spriggs, Meg J.",
+        "Murphy-Beiner, Ashleigh",
+        "Murphy, Roberta",
+        "Bornemann, Julia",
+        "Thurgur, Hannah",
+        "Schlag, Anne K."
       ],
       "year": 2023,
       "start_page": null
@@ -118,32 +196,95 @@
       "venue": "Frontiers in Psychology",
       "publisher": null,
       "concepts": [
+        "Reciprocity (cultural anthropology)",
+        "Stakeholder",
+        "Public relations",
+        "Mental health",
         "Psychology",
-        "Value (mathematics)",
-        "Social psychology",
-        "Self",
-        "Salience (neuroscience)",
-        "Perspective (graphical)",
-        "Attribution",
-        "Epistemology",
-        "Cognitive psychology"
+        "Engineering ethics"
       ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1104627/pdf"
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1119115/pdf"
     },
-    "updated_at": "2026-01-22T03:51:07.637894+00:00"
+    "updated_at": "2026-01-23T05:11:13.288608+00:00"
   },
-  "10.1177/20451253231198466": {
+  "10.1017/S096318012200007X": {
+    "crossref": {
+      "title": "Ethical Issues Regarding Nonsubjective Psychedelics as Standard of Care",
+      "authors": [
+        "Yaden, David B.",
+        "Earp, Brian D.",
+        "Griffiths, Roland R."
+      ],
+      "year": 2022,
+      "start_page": 464
+    },
     "openalex": {
-      "venue": "Therapeutic Advances in Psychopharmacology",
+      "venue": "Cambridge Quarterly of Healthcare Ethics",
       "publisher": null,
       "concepts": [
         "Psychology",
-        "Medicine",
-        "Psychiatry"
+        "Psychotherapist",
+        "Social psychology"
       ],
-      "oa_url": "https://journals.sagepub.com/doi/pdf/10.1177/20451253231198466"
+      "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/E32BC689D0FCB82FAB4484CA87CEB922/S096318012200007Xa.pdf/div-class-title-ethical-issues-regarding-nonsubjective-psychedelics-as-standard-of-care-div.pdf"
     },
-    "updated_at": "2026-01-22T03:51:07.833159+00:00"
+    "updated_at": "2026-01-23T05:11:13.290877+00:00"
+  },
+  "10.1371/journal.pone.0296071": {
+    "crossref": {
+      "title": "Spiritual health practitioners\u2019 contributions to psychedelic assisted therapy: A qualitative analysis",
+      "authors": [
+        "Peacock, Caroline",
+        "Mascaro, Jennifer S.",
+        "Brauer, Erin",
+        "Zarrabi, Ali John",
+        "Dunlop, Boadie W.",
+        "Maples-Keller, Jessica L.",
+        "Grant, George H.",
+        "Raison, Charles L.",
+        "Rab, Fayzan",
+        "Palitsky, Roman"
+      ],
+      "year": 2024,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "PLoS ONE",
+      "publisher": null,
+      "concepts": [
+        "Medicine",
+        "Health care",
+        "Psychotherapist",
+        "Qualitative research",
+        "Psychology",
+        "Nursing"
+      ],
+      "oa_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0296071&type=printable"
+    },
+    "updated_at": "2026-01-23T05:11:13.544867+00:00"
+  },
+  "10.1021/acsptsci.0c00192": {
+    "crossref": {
+      "title": "The Subjective Effects of Psychedelics May Not Be Necessary for Their Enduring Therapeutic Effects",
+      "authors": [
+        "Olson, David E."
+      ],
+      "year": 2021,
+      "start_page": 563
+    },
+    "openalex": {
+      "venue": "ACS Pharmacology & Translational Science",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Action (physics)",
+        "Mood",
+        "Psychotherapist",
+        "Neuroscience"
+      ],
+      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/8033607"
+    },
+    "updated_at": "2026-01-23T05:11:13.556536+00:00"
   },
   "10.1073/pnas.1518377113": {
     "crossref": {
@@ -191,298 +332,7 @@
       ],
       "oa_url": "https://www.pnas.org/content/pnas/113/17/4853.full.pdf"
     },
-    "updated_at": "2026-01-22T03:51:07.888284+00:00"
-  },
-  "10.3389/fphar.2018.00172": {
-    "crossref": {
-      "title": "Unifying Theories of Psychedelic Drug Effects",
-      "authors": [
-        "Swanson, Link R."
-      ],
-      "year": 2018,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Pharmacology",
-      "publisher": null,
-      "concepts": [
-        "Cognitive science",
-        "Perception",
-        "Psychology",
-        "Cognition",
-        "Cognitive psychology"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fphar.2018.00172/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:07.925368+00:00"
-  },
-  "10.1101/2022.09.06.22279626": {
-    "crossref": {
-      "title": "Effective connectivity of emotion and cognition under psilocybin",
-      "authors": [
-        "Stoliker, Devon",
-        "Novelli, Leonardo",
-        "Vollenweider, Franz X.",
-        "Egan, Gary F.",
-        "Preller, Katrin H.",
-        "Razi, Adeel"
-      ],
-      "year": 2022,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": null,
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Amygdala",
-        "Hallucinogen",
-        "Neuroscience",
-        "Cognition",
-        "Salience (neuroscience)",
-        "Cognitive psychology"
-      ],
-      "oa_url": "https://www.medrxiv.org/content/medrxiv/early/2022/09/09/2022.09.06.22279626.full.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:08.036003+00:00"
-  },
-  "10.3389/fphar.2023.1240295": {
-    "crossref": {
-      "title": "Bedside to bench: the outlook for psychedelic research",
-      "authors": [
-        "Acero, Victor P.",
-        "Cribas, Emily S.",
-        "Browne, Kevin D.",
-        "Rivellini, Olivia",
-        "Burrell, Justin C.",
-        "O\u2019Donnell, John C.",
-        "Das, Suradip",
-        "Cullen, D. Kacy"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Pharmacology",
-      "publisher": null,
-      "concepts": [
-        "Neuroscience",
-        "Traumatic brain injury",
-        "Neuroplasticity",
-        "Anxiety",
-        "Psychology",
-        "Mechanism (biology)",
-        "Medicine",
-        "Psychiatry"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fphar.2023.1240295/pdf?isPublishedV2=False"
-    },
-    "updated_at": "2026-01-22T03:51:08.067346+00:00"
-  },
-  "10.1353/pbm.2023.0007": {
-    "crossref": {
-      "title": "Past Is Prologue: Ethical Issues in Pediatric Psychedelics Research and Treatment",
-      "authors": [
-        "Edelsohn, Gail A.",
-        "Sisti, Dominic"
-      ],
-      "year": 2023,
-      "start_page": 129
-    },
-    "openalex": {
-      "venue": "Perspectives in biology and medicine",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Psychiatry",
-        "Prologue",
-        "Psychotherapist",
-        "Clinical psychology",
-        "Medicine"
-      ],
-      "oa_url": null
-    },
-    "updated_at": "2026-01-22T03:51:08.200329+00:00"
-  },
-  "10.3389/fpsyg.2021.617224": {
-    "crossref": {
-      "title": "Current Perspective on the Therapeutic Preset for Substance-Assisted Psychotherapy",
-      "authors": [
-        "Thal, Sascha B.",
-        "Bright, Stephen J.",
-        "Sharbanee, Jason M.",
-        "Wenge, Tobias",
-        "Skeffington, Petra M."
-      ],
-      "year": 2021,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychology",
-      "publisher": null,
-      "concepts": [
-        "Context (archaeology)",
-        "Psychotherapist",
-        "Psychology",
-        "Perspective (graphical)",
-        "Therapeutic relationship",
-        "Interpersonal communication"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2021.617224/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:08.249505+00:00"
-  },
-  "10.1177/13634615221129116": {
-    "crossref": {
-      "title": "Psychosis and psychedelics: Historical entanglements and contemporary contrasts",
-      "authors": [
-        "Friesen, Phoebe"
-      ],
-      "year": 2022,
-      "start_page": 592
-    },
-    "openalex": {
-      "venue": "Transcultural Psychiatry",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Psychosis",
-        "Reductionism",
-        "Covert",
-        "Psychotherapist",
-        "Psychoanalysis",
-        "Psychiatry"
-      ],
-      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/9660273"
-    },
-    "updated_at": "2026-01-22T03:51:08.262479+00:00"
-  },
-  "10.1371/journal.pone.0296071": {
-    "crossref": {
-      "title": "Spiritual health practitioners\u2019 contributions to psychedelic assisted therapy: A qualitative analysis",
-      "authors": [
-        "Peacock, Caroline",
-        "Mascaro, Jennifer S.",
-        "Brauer, Erin",
-        "Zarrabi, Ali John",
-        "Dunlop, Boadie W.",
-        "Maples-Keller, Jessica L.",
-        "Grant, George H.",
-        "Raison, Charles L.",
-        "Rab, Fayzan",
-        "Palitsky, Roman"
-      ],
-      "year": 2024,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "PLoS ONE",
-      "publisher": null,
-      "concepts": [
-        "Medicine",
-        "Health care",
-        "Psychotherapist",
-        "Qualitative research",
-        "Psychology",
-        "Nursing"
-      ],
-      "oa_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0296071&type=printable"
-    },
-    "updated_at": "2026-01-22T03:51:08.368155+00:00"
-  },
-  "10.3389/fpsyt.2023.1199642": {
-    "openalex": {
-      "venue": "Frontiers in Psychiatry",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Psychiatry",
-        "Clinical psychology",
-        "Anxiety",
-        "Mental health",
-        "Hallucinogen",
-        "Medicine"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2023.1199642/pdf?isPublishedV2=False"
-    },
-    "updated_at": "2026-01-22T03:51:08.380261+00:00"
-  },
-  "10.3390/philosophies8050076": {
-    "openalex": {
-      "venue": "Philosophies",
-      "publisher": null,
-      "concepts": [
-        "Criminalization",
-        "Psychology",
-        "Harm",
-        "Subject (documents)",
-        "Psychotherapist",
-        "Psychiatry",
-        "MEDLINE"
-      ],
-      "oa_url": "https://www.mdpi.com/2409-9287/8/5/76/pdf?version=1692855632"
-    },
-    "updated_at": "2026-01-22T03:51:08.505126+00:00"
-  },
-  "10.3389/fpsyt.2023.1287961": {
-    "crossref": {
-      "title": "Ayahuasca-induced personal death experiences: prevalence, characteristics, and impact on attitudes toward death, life, and the environment",
-      "authors": [
-        "David, Jonathan",
-        "Bouso, Jos\u00e9 Carlos",
-        "Kohek, Maja",
-        "Ona, Gen\u00eds",
-        "Tadmor, Nir",
-        "Arnon, Tal",
-        "Dor-Ziderman, Yair",
-        "Berkovich-Ohana, Aviva"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychiatry",
-      "publisher": null,
-      "concepts": [
-        "Ayahuasca",
-        "Distress",
-        "Psychopathology",
-        "Psychology",
-        "Transformative learning",
-        "Coping (psychology)",
-        "Demographics",
-        "Medicine",
-        "Clinical psychology"
-      ],
-      "oa_url": "https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2023.1287961/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:08.567449+00:00"
-  },
-  "10.33448/rsd-v12i9.43308": {
-    "crossref": {
-      "title": "Psilocybin-Assisted Therapy: A scoping review of participants\u2019 and facilitators\u2019 experiences in qualitative studies",
-      "authors": [
-        "Schuitmaker, Nicole"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Research Society and Development",
-      "publisher": null,
-      "concepts": [
-        "Qualitative research",
-        "Facilitator",
-        "Inclusion (mineral)",
-        "Psychology",
-        "Emotive",
-        "Medicine",
-        "Psychotherapist",
-        "MEDLINE"
-      ],
-      "oa_url": "https://rsdjournal.org/index.php/rsd/article/download/43308/34872"
-    },
-    "updated_at": "2026-01-22T03:51:08.604387+00:00"
+    "updated_at": "2026-01-23T05:11:13.602633+00:00"
   },
   "10.3389/fpsyt.2022.1076459": {
     "crossref": {
@@ -513,404 +363,57 @@
       ],
       "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2022.1076459/pdf"
     },
-    "updated_at": "2026-01-22T03:51:08.695206+00:00"
+    "updated_at": "2026-01-23T05:11:13.621870+00:00"
   },
-  "10.1021/acsptsci.0c00192": {
+  "10.3389/fphar.2018.00172": {
     "crossref": {
-      "title": "The Subjective Effects of Psychedelics May Not Be Necessary for Their Enduring Therapeutic Effects",
+      "title": "Unifying Theories of Psychedelic Drug Effects",
       "authors": [
-        "Olson, David E."
+        "Swanson, Link R."
       ],
-      "year": 2021,
-      "start_page": 563
-    },
-    "openalex": {
-      "venue": "ACS Pharmacology & Translational Science",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Action (physics)",
-        "Mood",
-        "Psychotherapist",
-        "Neuroscience"
-      ],
-      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/8033607"
-    },
-    "updated_at": "2026-01-22T03:51:08.696551+00:00"
-  },
-  "10.3389/fnhum.2023.1159821": {
-    "crossref": {
-      "title": "Modelling phenomenological differences in aetiologically distinct visual hallucinations using deep neural networks",
-      "authors": [
-        "Suzuki, Keisuke",
-        "Seth, Anil K.",
-        "Schwartzman, David J."
-      ],
-      "year": 2024,
+      "year": 2018,
       "start_page": null
     },
     "openalex": {
-      "venue": "Frontiers in Human Neuroscience",
+      "venue": "Frontiers in Pharmacology",
       "publisher": null,
       "concepts": [
-        "Phenomenology (philosophy)",
-        "Psychology",
+        "Cognitive science",
         "Perception",
-        "Cognitive psychology",
-        "Visual Hallucination",
-        "Neuroscience",
-        "Phenomenological method",
-        "Cognitive science"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fnhum.2023.1159821/pdf?isPublishedV2=False"
-    },
-    "updated_at": "2026-01-22T03:51:08.849072+00:00"
-  },
-  "10.1007/s12152-024-09545-6": {
-    "crossref": {
-      "title": "Giving Consent to the Ineffable",
-      "authors": [
-        "Villiger, Daniel"
-      ],
-      "year": 2024,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Neuroethics",
-      "publisher": null,
-      "concepts": [
-        "Transformative learning",
         "Psychology",
-        "Psychotherapist",
-        "Status quo"
-      ],
-      "oa_url": "https://link.springer.com/content/pdf/10.1007/s12152-024-09545-6.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:08.883412+00:00"
-  },
-  "10.3389/fpsyg.2023.1119115": {
-    "crossref": {
-      "title": "ARC: a framework for access, reciprocity and conduct in psychedelic therapies",
-      "authors": [
-        "Spriggs, Meg J.",
-        "Murphy-Beiner, Ashleigh",
-        "Murphy, Roberta",
-        "Bornemann, Julia",
-        "Thurgur, Hannah",
-        "Schlag, Anne K."
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychology",
-      "publisher": null,
-      "concepts": [
-        "Reciprocity (cultural anthropology)",
-        "Stakeholder",
-        "Public relations",
-        "Mental health",
-        "Psychology",
-        "Engineering ethics"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1119115/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:08.895463+00:00"
-  },
-  "10.3389/fpsyt.2021.680064": {
-    "crossref": {
-      "title": "Moral Psychopharmacology Needs Moral Inquiry: The Case of Psychedelics",
-      "authors": [
-        "Langlitz, Nicolas",
-        "Dyck, Erika",
-        "Scheidegger, Milan",
-        "Repantis, Dimitris"
-      ],
-      "year": 2021,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychiatry",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Scholarship",
-        "Counterculture",
-        "Politics",
-        "Mainstream",
-        "Psychoanalytic theory",
-        "Immediacy",
-        "Conversation",
-        "Epistemology",
-        "Sociology",
-        "Psychoanalysis",
-        "Social psychology"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2021.680064/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.037839+00:00"
-  },
-  "10.3389/fpsyg.2023.1152896": {
-    "crossref": {
-      "title": "Henri Michaux's program for the psychedelic humanities",
-      "authors": [
-        "Davis, Oliver"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychology",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Humanities",
-        "D\u00e9j\u00e0 vu",
-        "Psychoanalysis"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1152896/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.039863+00:00"
-  },
-  "10.48350/179398": {
-    "openalex": {
-      "venue": "Open Access CRIS of the University of Bern",
-      "publisher": null,
-      "concepts": [
-        "Medicine",
-        "Group (periodic table)",
-        "Psychology",
-        "Psychotherapist"
-      ],
-      "oa_url": "https://doi.org/10.48350/179398"
-    },
-    "updated_at": "2026-01-22T03:51:09.144498+00:00"
-  },
-  "10.1101/2023.11.07.566008": {
-    "crossref": {
-      "title": "The entropic heart: Tracking the psychedelic state via heart rate dynamics",
-      "authors": [
-        "Rosas, Fernando E.",
-        "Mediano, Pedro A.M.",
-        "Timmermann, Christopher",
-        "Luppi, Andrea I",
-        "Candia-Rivera, Diego",
-        "Abbasi-Asl, Reza",
-        "Gazzaley, Adam",
-        "Kringelbach, Morten L.",
-        "Muthukumaraswamy, Suresh",
-        "Bor, Daniel",
-        "Garfinkel, Sarah",
-        "Carhart-Harris, Robin L."
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": null,
-      "publisher": null,
-      "concepts": [
-        "Entropy (arrow of time)",
-        "Artificial intelligence",
-        "Hallucinogen",
-        "Computer science",
-        "Neuroscience",
-        "Psychology"
-      ],
-      "oa_url": "https://www.biorxiv.org/content/biorxiv/early/2023/11/09/2023.11.07.566008.full.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.193717+00:00"
-  },
-  "10.1001/jamapsychiatry.2022.4101": {
-    "crossref": {
-      "title": "Psychedelic Drug Legislative Reform and Legalization in the US",
-      "authors": [
-        "Siegel, Joshua S.",
-        "Daily, James E.",
-        "Perry, Demetrius A.",
-        "Nicol, Ginger E."
-      ],
-      "year": 2023,
-      "start_page": 77
-    },
-    "openalex": {
-      "venue": "JAMA Psychiatry",
-      "publisher": null,
-      "concepts": [
-        "Decriminalization",
-        "Legislature",
-        "Legislation",
-        "Licensure",
-        "Legalization",
-        "Political science",
-        "Public administration",
-        "Law reform",
-        "Medicine",
-        "Hallucinogen"
-      ],
-      "oa_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10069558/pdf/nihms-1881701.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.214339+00:00"
-  },
-  "10.1038/s41591-023-02378-5": {
-    "crossref": {
-      "title": "Psychedelic treatments for mental health conditions pose challenges for informed consent",
-      "authors": [
-        "Seybert, Carolina",
-        "Cotovio, Gon\u00e7alo",
-        "Madeira, Lu\u00eds",
-        "Ricou, Miguel",
-        "Pires, Ana Matos",
-        "Oliveira-Maia, Albino J."
-      ],
-      "year": 2023,
-      "start_page": 2167
-    },
-    "openalex": {
-      "venue": "Nature Medicine",
-      "publisher": null,
-      "concepts": [
-        "Mental health",
-        "Medicine",
-        "Psychology",
-        "Psychiatry",
-        "Alternative medicine"
-      ],
-      "oa_url": "https://www.nature.com/articles/s41591-023-02378-5.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.357667+00:00"
-  },
-  "10.1177/02698811221140011": {
-    "crossref": {
-      "title": "A unified model of ketamine\u2019s dissociative and psychedelic properties",
-      "authors": [
-        "Marguilho, Miriam",
-        "Figueiredo, In\u00eas",
-        "Castro-Rodrigues, Pedro"
-      ],
-      "year": 2023,
-      "start_page": 14
-    },
-    "openalex": {
-      "venue": "Journal of Psychopharmacology",
-      "publisher": null,
-      "concepts": [
-        "Dissociative",
-        "Ketamine",
-        "Psychology",
-        "Neuroscience",
-        "Psychotherapist"
-      ],
-      "oa_url": "https://doi.org/10.1177/02698811221140011"
-    },
-    "updated_at": "2026-01-22T03:51:09.370753+00:00"
-  },
-  "10.1093/ijnp/pyx047": {
-    "crossref": {
-      "title": "Effect of Psilocybin on Empathy and Moral Decision-Making",
-      "authors": [
-        "Pokorny, Thomas",
-        "Preller, Katrin H",
-        "Kometer, Michael",
-        "Dziobek, Isabel",
-        "Vollenweider, Franz X"
-      ],
-      "year": 2017,
-      "start_page": 747
-    },
-    "openalex": {
-      "venue": "The International Journal of Neuropsychopharmacology",
-      "publisher": null,
-      "concepts": [
-        "Empathy",
-        "Psychology",
-        "Prosocial behavior",
         "Cognition",
-        "Hallucinogen",
-        "Neuroscience",
-        "Cognitive psychology",
-        "Developmental psychology"
-      ],
-      "oa_url": "https://academic.oup.com/ijnp/article-pdf/20/9/747/19679286/pyx047.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.469475+00:00"
-  },
-  "10.1038/s41598-023-36184-3": {
-    "crossref": {
-      "title": "Prevalence and therapeutic impact of adverse life event reexperiencing under ceremonial ayahuasca",
-      "authors": [
-        "Weiss, Brandon",
-        "Wingert, Aleksandra",
-        "Erritzoe, David",
-        "Campbell, W. Keith"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Scientific Reports",
-      "publisher": null,
-      "concepts": [
-        "Ayahuasca",
-        "Psychology",
-        "Clinical psychology",
-        "Adverse effect",
-        "Psychiatry"
-      ],
-      "oa_url": "https://www.nature.com/articles/s41598-023-36184-3.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:09.473522+00:00"
-  },
-  "10.3389/fpsyg.2013.00753": {
-    "crossref": {
-      "title": "The induction of synaesthesia with chemical agents: a systematic review",
-      "authors": [
-        "Luke, David P.",
-        "Terhune, Devin B."
-      ],
-      "year": 2013,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychology",
-      "publisher": null,
-      "concepts": [
-        "Neurochemical",
-        "Psychology",
-        "Neuroscience",
         "Cognitive psychology"
       ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2013.00753/pdf"
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fphar.2018.00172/pdf"
     },
-    "updated_at": "2026-01-22T03:51:09.532838+00:00"
+    "updated_at": "2026-01-23T05:11:13.638719+00:00"
   },
-  "10.1017/S0963180123000099": {
+  "10.1177/10398562231156684": {
     "crossref": {
-      "title": "Is the Requirement for First-Person Experience of Psychedelic Drugs a Justified Component of a Psychedelic Therapist\u2019s Training?",
+      "title": "The prescription of psychedelic therapies in Australia and New Zealand: A brief survey of psychiatrists",
       "authors": [
-        "Emmerich, Nathan",
-        "Humphries, Bryce"
+        "Berger, Joshua J",
+        "Fitzgerald, Paul B"
       ],
-      "year": 2024,
-      "start_page": 548
+      "year": 2023,
+      "start_page": 190
     },
     "openalex": {
-      "venue": "Cambridge Quarterly of Healthcare Ethics",
+      "venue": "Australasian Psychiatry",
       "publisher": null,
       "concepts": [
+        "Context (archaeology)",
+        "Medical prescription",
+        "Psychiatry",
+        "Medicine",
         "Psychology",
-        "Psychotherapist",
-        "MDMA",
-        "Experiential learning",
-        "Addiction",
-        "Value (mathematics)",
-        "Hallucinogen",
-        "Existentialism",
-        "Psychiatry"
+        "Scope (computer science)",
+        "Family medicine",
+        "Clinical psychology"
       ],
-      "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/62A73ECB021AB35097E5CC940E0CECF2/S0963180123000099a.pdf/div-class-title-is-the-requirement-for-first-person-experience-of-psychedelic-drugs-a-justified-component-of-a-psychedelic-therapist-s-training-div.pdf"
+      "oa_url": "https://doi.org/10.1177/10398562231156684"
     },
-    "updated_at": "2026-01-22T03:51:09.696547+00:00"
+    "updated_at": "2026-01-23T05:11:13.897805+00:00"
   },
   "10.1177/02698811231179801": {
     "crossref": {
@@ -938,43 +441,13 @@
       ],
       "oa_url": "https://journals.sagepub.com/doi/pdf/10.1177/02698811231179801"
     },
-    "updated_at": "2026-01-22T03:51:09.709768+00:00"
+    "updated_at": "2026-01-23T05:11:13.923544+00:00"
   },
-  "10.1016/j.neuropharm.2022.109300": {
+  "10.3389/fpsyg.2023.1104627": {
     "crossref": {
-      "title": "More than meets the eye: The role of sensory dimensions in psychedelic brain dynamics, experience, and therapeutics",
+      "title": "Psychedelic unselfing: self-transcendence and change of values in psychedelic experiences",
       "authors": [
-        "Aqil, Marco",
-        "Roseman, Leor"
-      ],
-      "year": 2023,
-      "start_page": 109300
-    },
-    "openalex": {
-      "venue": "Neuropharmacology",
-      "publisher": null,
-      "concepts": [
-        "Psychology",
-        "Neuroscience",
-        "Hallucinogen",
-        "Cognitive psychology",
-        "Sensory system",
-        "Neuroimaging",
-        "Visual Hallucination",
-        "Cognitive science"
-      ],
-      "oa_url": "https://doi.org/10.1016/j.neuropharm.2022.109300"
-    },
-    "updated_at": "2026-01-22T03:51:09.812749+00:00"
-  },
-  "10.3389/fpsyg.2023.1054692": {
-    "crossref": {
-      "title": "Back from the rabbit hole. Theoretical considerations and practical guidelines on psychedelic integration for mental health specialists",
-      "authors": [
-        "Gre\u0144, Jakub",
-        "Tyl\u0161, Filip",
-        "Lasocik, Micha\u0142",
-        "Kiraly, Csaba"
+        "K\u00e4h\u00f6nen, Juuso"
       ],
       "year": 2023,
       "start_page": null
@@ -984,171 +457,49 @@
       "publisher": null,
       "concepts": [
         "Psychology",
-        "Psychological intervention",
-        "Mental health",
-        "Presentation (obstetrics)",
-        "Scope (computer science)",
-        "Intervention (counseling)",
-        "Resource (disambiguation)",
-        "Psychotherapist",
-        "Medical education",
-        "Applied psychology"
+        "Value (mathematics)",
+        "Social psychology",
+        "Self",
+        "Salience (neuroscience)",
+        "Perspective (graphical)",
+        "Attribution",
+        "Epistemology",
+        "Cognitive psychology"
       ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1054692/pdf?isPublishedV2=False"
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1104627/pdf"
     },
-    "updated_at": "2026-01-22T03:51:09.820916+00:00"
+    "updated_at": "2026-01-23T05:11:13.983590+00:00"
   },
-  "10.1007/s13164-023-00709-6": {
+  "10.3389/fpsyt.2023.1159843": {
     "crossref": {
-      "title": "From Altered States to Metaphysics: The Epistemic Status of Psychedelic-induced Metaphysical Beliefs",
+      "title": "Lifeboat ethics, risk, and therapeutic opportunity: an appeal for equitable psychedelic therapy access in the \u201chigh-risk\u201d addiction patient",
       "authors": [
-        "G\u0142adziejewski, Pawe\u0142"
+        "Black, Taylor"
       ],
-      "year": 2025,
-      "start_page": 175
+      "year": 2023,
+      "start_page": null
     },
     "openalex": {
-      "venue": "Review of Philosophy and Psychology",
+      "venue": "Frontiers in Psychiatry",
       "publisher": null,
       "concepts": [
-        "Metaphysics",
-        "Epistemology",
-        "Naturalism",
-        "Consciousness",
-        "Philosophy",
-        "Value (mathematics)",
-        "Philosophy of science",
+        "Population",
+        "Legalization",
+        "Health care",
+        "Medicine",
+        "Addiction",
+        "Accountability",
+        "Public health",
+        "Mental health",
+        "Public relations",
+        "Psychiatry",
+        "Business",
+        "Nursing",
         "Psychology"
       ],
-      "oa_url": "https://link.springer.com/content/pdf/10.1007/s13164-023-00709-6.pdf"
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2023.1159843/pdf?isPublishedV2=False"
     },
-    "updated_at": "2026-01-22T03:51:09.858710+00:00"
-  },
-  "10.3389/fpsyg.2023.1108333": {
-    "crossref": {
-      "title": "Transformative experience and informed consent to psychedelic-assisted psychotherapy",
-      "authors": [
-        "Jacobs, Edward"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychology",
-      "publisher": null,
-      "concepts": [
-        "Transformative learning",
-        "Psychology",
-        "Psychotherapist",
-        "Integrative psychotherapy",
-        "Psychoanalysis"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1108333/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:10.035296+00:00"
-  },
-  "10.3389/fpsyg.2023.1082933": {
-    "crossref": {
-      "title": "What good are psychedelic humanities?",
-      "authors": [
-        "Langlitz, Nicolas"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Psychology",
-      "publisher": null,
-      "concepts": [
-        "Presupposition",
-        "Scholarship",
-        "Psychology",
-        "Normative",
-        "Institutionalisation",
-        "Epistemology",
-        "Field (mathematics)",
-        "Sociology",
-        "Humanities",
-        "Social psychology"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1082933/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:10.091648+00:00"
-  },
-  "10.3389/fnins.2023.1161868": {
-    "crossref": {
-      "title": "Editorial: What is up with psychedelics anyway?",
-      "authors": [
-        "Lewis, Candace R.",
-        "McMurray, Matthew",
-        "Mennenga, Sarah E.",
-        "Helms Tillery, Steve"
-      ],
-      "year": 2023,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Frontiers in Neuroscience",
-      "publisher": null,
-      "concepts": [
-        "Neuropharmacology",
-        "Psychology",
-        "Neuroscience"
-      ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fnins.2023.1161868/pdf"
-    },
-    "updated_at": "2026-01-22T03:51:10.167261+00:00"
-  },
-  "10.21203/rs.3.rs-1241397/v1": {
-    "crossref": {
-      "title": "Expert Opinion on Psychedelic-Assisted Psychotherapy for People with Psychotic Symptoms",
-      "authors": [
-        "Torre, Joseph T. La",
-        "Mahammadli, Mehdi",
-        "Greenway, Kyle",
-        "Williams, Monnica"
-      ],
-      "year": 2022,
-      "start_page": null
-    },
-    "openalex": {
-      "venue": "Research Square (Research Square)",
-      "publisher": null,
-      "concepts": [
-        "Psychotherapist",
-        "Psychology",
-        "Clinical psychology",
-        "Alliance",
-        "Psychiatry",
-        "Quality of life (healthcare)",
-        "Expert opinion"
-      ],
-      "oa_url": "https://www.researchsquare.com/article/rs-1241397/latest.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:10.303639+00:00"
-  },
-  "10.1017/S0033291722003191": {
-    "crossref": {
-      "title": "Is good science leading the way in the therapeutic use of psychedelic drugs?",
-      "authors": [
-        "Hall, Wayne D.",
-        "Humphreys, Keith"
-      ],
-      "year": 2022,
-      "start_page": 2849
-    },
-    "openalex": {
-      "venue": "Psychological Medicine",
-      "publisher": null,
-      "concepts": [
-        "Content (measure theory)",
-        "Action (physics)",
-        "Psychology",
-        "Computer science"
-      ],
-      "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/F3FDF49E14AAF4D12036BFFC047357B4/S0033291722003191a.pdf/div-class-title-is-good-science-leading-the-way-in-the-therapeutic-use-of-psychedelic-drugs-div.pdf"
-    },
-    "updated_at": "2026-01-22T03:51:10.348655+00:00"
+    "updated_at": "2026-01-23T05:11:14.024822+00:00"
   },
   "10.1177/0269881116675512": {
     "crossref": {
@@ -1187,30 +538,194 @@
       ],
       "oa_url": "https://journals.sagepub.com/doi/pdf/10.1177/0269881116675512"
     },
-    "updated_at": "2026-01-22T03:51:10.586971+00:00"
+    "updated_at": "2026-01-23T05:11:14.082289+00:00"
   },
-  "10.1017/S096318012200007X": {
+  "10.3389/fpsyg.2023.1108333": {
     "crossref": {
-      "title": "Ethical Issues Regarding Nonsubjective Psychedelics as Standard of Care",
+      "title": "Transformative experience and informed consent to psychedelic-assisted psychotherapy",
       "authors": [
-        "Yaden, David B.",
-        "Earp, Brian D.",
-        "Griffiths, Roland R."
+        "Jacobs, Edward"
       ],
-      "year": 2022,
-      "start_page": 464
+      "year": 2023,
+      "start_page": null
     },
     "openalex": {
-      "venue": "Cambridge Quarterly of Healthcare Ethics",
+      "venue": "Frontiers in Psychology",
+      "publisher": null,
+      "concepts": [
+        "Transformative learning",
+        "Psychology",
+        "Psychotherapist",
+        "Integrative psychotherapy",
+        "Psychoanalysis"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1108333/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:14.230976+00:00"
+  },
+  "10.1556/2054.2022.00202": {
+    "crossref": {
+      "title": "Psychological effects and subjective experiences of ayahuasca rituals in participants of two neoshamanic centers of Uruguay",
+      "authors": [
+        "Apud, Ismael",
+        "Scuro, Juan",
+        "Carrera, Ignacio",
+        "Oliveri, Andres"
+      ],
+      "year": 2022,
+      "start_page": 72
+    },
+    "openalex": {
+      "venue": "Journal of Psychedelic Studies",
+      "publisher": null,
+      "concepts": [
+        "Ayahuasca",
+        "Psychology",
+        "Cognition",
+        "Perception",
+        "Affect (linguistics)",
+        "Clinical psychology",
+        "Qualitative research",
+        "Hallucinogen",
+        "Rating scale",
+        "Qualitative property"
+      ],
+      "oa_url": "https://akjournals.com/downloadpdf/journals/2054/6/2/article-p72.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:14.248448+00:00"
+  },
+  "10.1177/13634615221129116": {
+    "crossref": {
+      "title": "Psychosis and psychedelics: Historical entanglements and contemporary contrasts",
+      "authors": [
+        "Friesen, Phoebe"
+      ],
+      "year": 2022,
+      "start_page": 592
+    },
+    "openalex": {
+      "venue": "Transcultural Psychiatry",
       "publisher": null,
       "concepts": [
         "Psychology",
+        "Psychosis",
+        "Reductionism",
+        "Covert",
         "Psychotherapist",
-        "Social psychology"
+        "Psychoanalysis",
+        "Psychiatry"
       ],
-      "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/E32BC689D0FCB82FAB4484CA87CEB922/S096318012200007Xa.pdf/div-class-title-ethical-issues-regarding-nonsubjective-psychedelics-as-standard-of-care-div.pdf"
+      "oa_url": "https://www.ncbi.nlm.nih.gov/pmc/articles/9660273"
     },
-    "updated_at": "2026-01-22T03:51:10.709289+00:00"
+    "updated_at": "2026-01-23T05:11:14.267837+00:00"
+  },
+  "10.1016/j.neuropharm.2022.109300": {
+    "crossref": {
+      "title": "More than meets the eye: The role of sensory dimensions in psychedelic brain dynamics, experience, and therapeutics",
+      "authors": [
+        "Aqil, Marco",
+        "Roseman, Leor"
+      ],
+      "year": 2023,
+      "start_page": 109300
+    },
+    "openalex": {
+      "venue": "Neuropharmacology",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Neuroscience",
+        "Hallucinogen",
+        "Cognitive psychology",
+        "Sensory system",
+        "Neuroimaging",
+        "Visual Hallucination",
+        "Cognitive science"
+      ],
+      "oa_url": "https://doi.org/10.1016/j.neuropharm.2022.109300"
+    },
+    "updated_at": "2026-01-23T05:11:14.401290+00:00"
+  },
+  "10.3389/fpsyt.2023.1287961": {
+    "crossref": {
+      "title": "Ayahuasca-induced personal death experiences: prevalence, characteristics, and impact on attitudes toward death, life, and the environment",
+      "authors": [
+        "David, Jonathan",
+        "Bouso, Jos\u00e9 Carlos",
+        "Kohek, Maja",
+        "Ona, Gen\u00eds",
+        "Tadmor, Nir",
+        "Arnon, Tal",
+        "Dor-Ziderman, Yair",
+        "Berkovich-Ohana, Aviva"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Psychiatry",
+      "publisher": null,
+      "concepts": [
+        "Ayahuasca",
+        "Distress",
+        "Psychopathology",
+        "Psychology",
+        "Transformative learning",
+        "Coping (psychology)",
+        "Demographics",
+        "Medicine",
+        "Clinical psychology"
+      ],
+      "oa_url": "https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2023.1287961/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:14.564607+00:00"
+  },
+  "10.1353/pbm.2023.0007": {
+    "crossref": {
+      "title": "Past Is Prologue: Ethical Issues in Pediatric Psychedelics Research and Treatment",
+      "authors": [
+        "Edelsohn, Gail A.",
+        "Sisti, Dominic"
+      ],
+      "year": 2023,
+      "start_page": 129
+    },
+    "openalex": {
+      "venue": "Perspectives in biology and medicine",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Psychiatry",
+        "Prologue",
+        "Psychotherapist",
+        "Clinical psychology",
+        "Medicine"
+      ],
+      "oa_url": null
+    },
+    "updated_at": "2026-01-23T05:11:14.614617+00:00"
+  },
+  "10.1007/s12152-024-09545-6": {
+    "crossref": {
+      "title": "Giving Consent to the Ineffable",
+      "authors": [
+        "Villiger, Daniel"
+      ],
+      "year": 2024,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Neuroethics",
+      "publisher": null,
+      "concepts": [
+        "Transformative learning",
+        "Psychology",
+        "Psychotherapist",
+        "Status quo"
+      ],
+      "oa_url": "https://link.springer.com/content/pdf/10.1007/s12152-024-09545-6.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:14.639818+00:00"
   },
   "10.3389/fpsyt.2020.00005": {
     "crossref": {
@@ -1241,13 +756,520 @@
       ],
       "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2020.00005/pdf"
     },
-    "updated_at": "2026-01-22T03:51:10.710773+00:00"
+    "updated_at": "2026-01-23T05:11:14.644181+00:00"
   },
-  "10.3389/fpsyt.2023.1159843": {
+  "10.1177/20451253231198466": {
     "crossref": {
-      "title": "Lifeboat ethics, risk, and therapeutic opportunity: an appeal for equitable psychedelic therapy access in the \u201chigh-risk\u201d addiction patient",
+      "title": "History repeating: guidelines to address common problems in psychedelic science",
       "authors": [
-        "Black, Taylor"
+        "van Elk, Michiel",
+        "Fried, Eiko I."
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Therapeutic Advances in Psychopharmacology",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Medicine",
+        "Psychiatry"
+      ],
+      "oa_url": "https://journals.sagepub.com/doi/pdf/10.1177/20451253231198466"
+    },
+    "updated_at": "2026-01-23T05:11:14.719813+00:00"
+  },
+  "10.3389/fnins.2023.1161868": {
+    "crossref": {
+      "title": "Editorial: What is up with psychedelics anyway?",
+      "authors": [
+        "Lewis, Candace R.",
+        "McMurray, Matthew",
+        "Mennenga, Sarah E.",
+        "Helms Tillery, Steve"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Neuroscience",
+      "publisher": null,
+      "concepts": [
+        "Neuropharmacology",
+        "Psychology",
+        "Neuroscience"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fnins.2023.1161868/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:14.845088+00:00"
+  },
+  "10.48350/179398": {
+    "openalex": {
+      "venue": "Open Access CRIS of the University of Bern",
+      "publisher": null,
+      "concepts": [
+        "Medicine",
+        "Group (periodic table)",
+        "Psychology",
+        "Psychotherapist"
+      ],
+      "oa_url": "https://doi.org/10.48350/179398"
+    },
+    "updated_at": "2026-01-23T05:11:14.927700+00:00"
+  },
+  "10.1177/02698811221140011": {
+    "crossref": {
+      "title": "A unified model of ketamine\u2019s dissociative and psychedelic properties",
+      "authors": [
+        "Marguilho, Miriam",
+        "Figueiredo, In\u00eas",
+        "Castro-Rodrigues, Pedro"
+      ],
+      "year": 2023,
+      "start_page": 14
+    },
+    "openalex": {
+      "venue": "Journal of Psychopharmacology",
+      "publisher": null,
+      "concepts": [
+        "Dissociative",
+        "Ketamine",
+        "Psychology",
+        "Neuroscience",
+        "Psychotherapist"
+      ],
+      "oa_url": "https://doi.org/10.1177/02698811221140011"
+    },
+    "updated_at": "2026-01-23T05:11:14.934759+00:00"
+  },
+  "10.3389/fphar.2023.1240295": {
+    "crossref": {
+      "title": "Bedside to bench: the outlook for psychedelic research",
+      "authors": [
+        "Acero, Victor P.",
+        "Cribas, Emily S.",
+        "Browne, Kevin D.",
+        "Rivellini, Olivia",
+        "Burrell, Justin C.",
+        "O\u2019Donnell, John C.",
+        "Das, Suradip",
+        "Cullen, D. Kacy"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Pharmacology",
+      "publisher": null,
+      "concepts": [
+        "Neuroscience",
+        "Traumatic brain injury",
+        "Neuroplasticity",
+        "Anxiety",
+        "Psychology",
+        "Mechanism (biology)",
+        "Medicine",
+        "Psychiatry"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fphar.2023.1240295/pdf?isPublishedV2=False"
+    },
+    "updated_at": "2026-01-23T05:11:15.012105+00:00"
+  },
+  "10.3389/fpsyt.2021.680064": {
+    "crossref": {
+      "title": "Moral Psychopharmacology Needs Moral Inquiry: The Case of Psychedelics",
+      "authors": [
+        "Langlitz, Nicolas",
+        "Dyck, Erika",
+        "Scheidegger, Milan",
+        "Repantis, Dimitris"
+      ],
+      "year": 2021,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Psychiatry",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Scholarship",
+        "Counterculture",
+        "Politics",
+        "Mainstream",
+        "Psychoanalytic theory",
+        "Immediacy",
+        "Conversation",
+        "Epistemology",
+        "Sociology",
+        "Psychoanalysis",
+        "Social psychology"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2021.680064/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.049831+00:00"
+  },
+  "10.3389/fnhum.2023.1159821": {
+    "crossref": {
+      "title": "Modelling phenomenological differences in aetiologically distinct visual hallucinations using deep neural networks",
+      "authors": [
+        "Suzuki, Keisuke",
+        "Seth, Anil K.",
+        "Schwartzman, David J."
+      ],
+      "year": 2024,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Human Neuroscience",
+      "publisher": null,
+      "concepts": [
+        "Phenomenology (philosophy)",
+        "Psychology",
+        "Perception",
+        "Cognitive psychology",
+        "Visual Hallucination",
+        "Neuroscience",
+        "Phenomenological method",
+        "Cognitive science"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fnhum.2023.1159821/pdf?isPublishedV2=False"
+    },
+    "updated_at": "2026-01-23T05:11:15.175298+00:00"
+  },
+  "10.1001/jamapsychiatry.2022.4101": {
+    "crossref": {
+      "title": "Psychedelic Drug Legislative Reform and Legalization in the US",
+      "authors": [
+        "Siegel, Joshua S.",
+        "Daily, James E.",
+        "Perry, Demetrius A.",
+        "Nicol, Ginger E."
+      ],
+      "year": 2023,
+      "start_page": 77
+    },
+    "openalex": {
+      "venue": "JAMA Psychiatry",
+      "publisher": null,
+      "concepts": [
+        "Decriminalization",
+        "Legislature",
+        "Legislation",
+        "Licensure",
+        "Legalization",
+        "Political science",
+        "Public administration",
+        "Law reform",
+        "Medicine",
+        "Hallucinogen"
+      ],
+      "oa_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10069558/pdf/nihms-1881701.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.257285+00:00"
+  },
+  "10.1101/2023.11.07.566008": {
+    "crossref": {
+      "title": "The entropic heart: Tracking the psychedelic state via heart rate dynamics",
+      "authors": [
+        "Rosas, Fernando E.",
+        "Mediano, Pedro A.M.",
+        "Timmermann, Christopher",
+        "Luppi, Andrea I",
+        "Candia-Rivera, Diego",
+        "Abbasi-Asl, Reza",
+        "Gazzaley, Adam",
+        "Kringelbach, Morten L.",
+        "Muthukumaraswamy, Suresh",
+        "Bor, Daniel",
+        "Garfinkel, Sarah",
+        "Carhart-Harris, Robin L."
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": null,
+      "publisher": null,
+      "concepts": [
+        "Entropy (arrow of time)",
+        "Artificial intelligence",
+        "Hallucinogen",
+        "Computer science",
+        "Neuroscience",
+        "Psychology"
+      ],
+      "oa_url": "https://www.biorxiv.org/content/biorxiv/early/2023/11/09/2023.11.07.566008.full.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.303348+00:00"
+  },
+  "10.1017/S0963180123000099": {
+    "crossref": {
+      "title": "Is the Requirement for First-Person Experience of Psychedelic Drugs a Justified Component of a Psychedelic Therapist\u2019s Training?",
+      "authors": [
+        "Emmerich, Nathan",
+        "Humphries, Bryce"
+      ],
+      "year": 2024,
+      "start_page": 548
+    },
+    "openalex": {
+      "venue": "Cambridge Quarterly of Healthcare Ethics",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Psychotherapist",
+        "MDMA",
+        "Experiential learning",
+        "Addiction",
+        "Value (mathematics)",
+        "Hallucinogen",
+        "Existentialism",
+        "Psychiatry"
+      ],
+      "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/62A73ECB021AB35097E5CC940E0CECF2/S0963180123000099a.pdf/div-class-title-is-the-requirement-for-first-person-experience-of-psychedelic-drugs-a-justified-component-of-a-psychedelic-therapist-s-training-div.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.415125+00:00"
+  },
+  "10.1101/2022.09.06.22279626": {
+    "crossref": {
+      "title": "Effective connectivity of emotion and cognition under psilocybin",
+      "authors": [
+        "Stoliker, Devon",
+        "Novelli, Leonardo",
+        "Vollenweider, Franz X.",
+        "Egan, Gary F.",
+        "Preller, Katrin H.",
+        "Razi, Adeel"
+      ],
+      "year": 2022,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": null,
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Amygdala",
+        "Hallucinogen",
+        "Neuroscience",
+        "Cognition",
+        "Salience (neuroscience)",
+        "Cognitive psychology"
+      ],
+      "oa_url": "https://www.medrxiv.org/content/medrxiv/early/2022/09/09/2022.09.06.22279626.full.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.564283+00:00"
+  },
+  "10.21203/rs.3.rs-1241397/v1": {
+    "crossref": {
+      "title": "Expert Opinion on Psychedelic-Assisted Psychotherapy for People with Psychotic Symptoms",
+      "authors": [
+        "Torre, Joseph T. La",
+        "Mahammadli, Mehdi",
+        "Greenway, Kyle",
+        "Williams, Monnica"
+      ],
+      "year": 2022,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Research Square (Research Square)",
+      "publisher": null,
+      "concepts": [
+        "Psychotherapist",
+        "Psychology",
+        "Clinical psychology",
+        "Alliance",
+        "Psychiatry",
+        "Quality of life (healthcare)",
+        "Expert opinion"
+      ],
+      "oa_url": "https://www.researchsquare.com/article/rs-1241397/latest.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.692696+00:00"
+  },
+  "10.1093/ijnp/pyx047": {
+    "crossref": {
+      "title": "Effect of Psilocybin on Empathy and Moral Decision-Making",
+      "authors": [
+        "Pokorny, Thomas",
+        "Preller, Katrin H",
+        "Kometer, Michael",
+        "Dziobek, Isabel",
+        "Vollenweider, Franz X"
+      ],
+      "year": 2017,
+      "start_page": 747
+    },
+    "openalex": {
+      "venue": "The International Journal of Neuropsychopharmacology",
+      "publisher": null,
+      "concepts": [
+        "Empathy",
+        "Psychology",
+        "Prosocial behavior",
+        "Cognition",
+        "Hallucinogen",
+        "Neuroscience",
+        "Cognitive psychology",
+        "Developmental psychology"
+      ],
+      "oa_url": "https://academic.oup.com/ijnp/article-pdf/20/9/747/19679286/pyx047.pdf"
+    },
+    "updated_at": "2026-01-23T05:11:15.797989+00:00"
+  },
+  "10.3389/fpsyg.2021.617224": {
+    "crossref": {
+      "title": "Current Perspective on the Therapeutic Preset for Substance-Assisted Psychotherapy",
+      "authors": [
+        "Thal, Sascha B.",
+        "Bright, Stephen J.",
+        "Sharbanee, Jason M.",
+        "Wenge, Tobias",
+        "Skeffington, Petra M."
+      ],
+      "year": 2021,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Psychology",
+      "publisher": null,
+      "concepts": [
+        "Context (archaeology)",
+        "Psychotherapist",
+        "Psychology",
+        "Perspective (graphical)",
+        "Therapeutic relationship",
+        "Interpersonal communication"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2021.617224/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:16.175091+00:00"
+  },
+  "10.1186/s40309-022-00199-2": {
+    "crossref": {
+      "title": "Socio-psychedelic imaginaries: envisioning and building legal psychedelic worlds in the United States",
+      "authors": [
+        "Schwarz-Plaschg, Claudia"
+      ],
+      "year": 2022,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "European Journal of Futures Research",
+      "publisher": null,
+      "concepts": [
+        "The Imaginary",
+        "Legalization",
+        "Politics",
+        "Decriminalization",
+        "Criminalization",
+        "Sociology",
+        "Hallucinogen",
+        "Criminology",
+        "Political science"
+      ],
+      "oa_url": "https://eujournalfuturesresearch.springeropen.com/track/pdf/10.1186/s40309-022-00199-2"
+    },
+    "updated_at": "2026-01-23T05:11:16.434454+00:00"
+  },
+  "10.33448/rsd-v12i9.43308": {
+    "crossref": {
+      "title": "Psilocybin-Assisted Therapy: A scoping review of participants\u2019 and facilitators\u2019 experiences in qualitative studies",
+      "authors": [
+        "Schuitmaker, Nicole"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Research Society and Development",
+      "publisher": null,
+      "concepts": [
+        "Qualitative research",
+        "Facilitator",
+        "Inclusion (mineral)",
+        "Psychology",
+        "Emotive",
+        "Medicine",
+        "Psychotherapist",
+        "MEDLINE"
+      ],
+      "oa_url": "https://rsdjournal.org/index.php/rsd/article/download/43308/34872"
+    },
+    "updated_at": "2026-01-23T05:11:16.529014+00:00"
+  },
+  "10.3389/fpsyg.2023.1152896": {
+    "crossref": {
+      "title": "Henri Michaux's program for the psychedelic humanities",
+      "authors": [
+        "Davis, Oliver"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Psychology",
+      "publisher": null,
+      "concepts": [
+        "Psychology",
+        "Humanities",
+        "D\u00e9j\u00e0 vu",
+        "Psychoanalysis"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1152896/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:16.701082+00:00"
+  },
+  "10.3389/fpsyg.2023.1082933": {
+    "crossref": {
+      "title": "What good are psychedelic humanities?",
+      "authors": [
+        "Langlitz, Nicolas"
+      ],
+      "year": 2023,
+      "start_page": null
+    },
+    "openalex": {
+      "venue": "Frontiers in Psychology",
+      "publisher": null,
+      "concepts": [
+        "Presupposition",
+        "Scholarship",
+        "Psychology",
+        "Normative",
+        "Institutionalisation",
+        "Epistemology",
+        "Field (mathematics)",
+        "Sociology",
+        "Humanities",
+        "Social psychology"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyg.2023.1082933/pdf"
+    },
+    "updated_at": "2026-01-23T05:11:16.758380+00:00"
+  },
+  "10.3389/fpsyt.2023.1199642": {
+    "crossref": {
+      "title": "Naturalistic psilocybin use is associated with persisting improvements in mental health and wellbeing: results from a prospective, longitudinal survey",
+      "authors": [
+        "Nayak, Sandeep M.",
+        "Jackson, Hillary",
+        "Sepeda, Nathan D.",
+        "Mathai, David S.",
+        "So, Sara",
+        "Yaffe, Abigail",
+        "Zaki, Hadi",
+        "Brasher, Trey J.",
+        "Lowe, Matthew X.",
+        "Jolly, Del R. P.",
+        "Barrett, Frederick S.",
+        "Griffiths, Roland R.",
+        "Strickland, Justin C.",
+        "Johnson, Matthew W.",
+        "Jackson, Heather",
+        "Garcia-Romeu, Albert"
       ],
       "year": 2023,
       "start_page": null
@@ -1256,22 +1278,42 @@
       "venue": "Frontiers in Psychiatry",
       "publisher": null,
       "concepts": [
-        "Population",
-        "Legalization",
-        "Health care",
-        "Medicine",
-        "Addiction",
-        "Accountability",
-        "Public health",
-        "Mental health",
-        "Public relations",
+        "Psychology",
         "Psychiatry",
-        "Business",
-        "Nursing",
+        "Clinical psychology",
+        "Anxiety",
+        "Mental health",
+        "Hallucinogen",
+        "Medicine"
+      ],
+      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2023.1199642/pdf?isPublishedV2=False"
+    },
+    "updated_at": "2026-01-23T05:11:17.708510+00:00"
+  },
+  "10.1007/s13164-023-00709-6": {
+    "crossref": {
+      "title": "From Altered States to Metaphysics: The Epistemic Status of Psychedelic-induced Metaphysical Beliefs",
+      "authors": [
+        "G\u0142adziejewski, Pawe\u0142"
+      ],
+      "year": 2025,
+      "start_page": 175
+    },
+    "openalex": {
+      "venue": "Review of Philosophy and Psychology",
+      "publisher": null,
+      "concepts": [
+        "Metaphysics",
+        "Epistemology",
+        "Naturalism",
+        "Consciousness",
+        "Philosophy",
+        "Value (mathematics)",
+        "Philosophy of science",
         "Psychology"
       ],
-      "oa_url": "https://www.frontiersin.org/articles/10.3389/fpsyt.2023.1159843/pdf?isPublishedV2=False"
+      "oa_url": "https://link.springer.com/content/pdf/10.1007/s13164-023-00709-6.pdf"
     },
-    "updated_at": "2026-01-22T03:51:13.069215+00:00"
+    "updated_at": "2026-01-23T05:11:17.738490+00:00"
   }
 }

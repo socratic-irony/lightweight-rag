@@ -84,19 +84,23 @@ def validate_input(data: Dict[str, Any]) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "Input must be a JSON object"
 
-    # Support 'query' (standard search) or 'summary' (summary generation only)
+    # Support 'query' (standard search) or 'summary' (summary generation only) or 'collections' or 'config'
     is_summary_request = data.get("type") == "summary"
+    is_collections_request = data.get("type") == "collections"
+    is_config_request = data.get("type") == "config"
 
     if is_summary_request:
         if "query" not in data:
             return False, "Missing required field 'query' for summary request"
         if "chunks" not in data or not isinstance(data["chunks"], list):
             return False, "Missing or invalid 'chunks' field for summary request"
+    elif is_collections_request or is_config_request:
+        pass # No query required for these
     else:
         if "query" not in data:
             return False, "Missing required field 'query'"
 
-    if "query" in data and (not isinstance(data["query"], str) or not data["query"].strip()):
+    if not is_collections_request and "query" in data and (not isinstance(data["query"], str) or not data["query"].strip()):
         return False, "Field 'query' must be a non-empty string"
 
     if "config" in data and not isinstance(data["config"], dict):
@@ -131,19 +135,13 @@ def validate_input(data: Dict[str, Any]) -> tuple[bool, str]:
 
 def process_config(config_data: Dict[str, Any] = None, config_file: str = None) -> Dict[str, Any]:
     """Process configuration with proper defaults and merging."""
-    # Start with defaults
-    cfg = get_default_config()
+    # Use config.yaml as default file if not specified
+    if config_file is None:
+        config_file = "config.yaml"
+        
+    cfg = load_config(config_file)
 
-    # Load from file if specified
-    if config_file:
-        try:
-            file_cfg = load_config(config_file)
-            cfg = merge_configs(cfg, file_cfg)
-        except Exception:
-            # Don't fail on config file errors, just use defaults
-            pass
-
-    # Merge provided config
+    # Merge provided config (overrides file/defaults)
     if config_data:
         cfg = merge_configs(cfg, config_data)
 
@@ -189,6 +187,10 @@ def process_config(config_data: Dict[str, Any] = None, config_file: str = None) 
 async def process_query(query: str, config: Dict[str, Any], request_type: str = "query", chunks: List[str] = None) -> Dict[str, Any]:
     """Process a single query and return formatted response."""
     try:
+        # If this is just a config request, return the config
+        if request_type == "config":
+            return {"success": True, "config": config}
+
         # In subprocess mode, suppress all output except the final JSON
         import os
         import sys
@@ -225,6 +227,15 @@ async def process_query(query: str, config: Dict[str, Any], request_type: str = 
                         summary,
                         summary_debug
                     )
+                elif request_type == "collections":
+                    from .io_pdf import list_collections
+                    pdf_dir = Path(config["paths"]["pdf_dir"])
+                    collections = list_collections(pdf_dir)
+                    return {
+                        "success": True,
+                        "collections": collections,
+                        "error": None
+                    }
                 else:
                     output = await run_rag_pipeline_with_summary(config, query)
                     return create_success_response(
@@ -255,7 +266,7 @@ def main():
             print(json.dumps(response))
             sys.exit(1)
 
-        query = input_data["query"]
+        query = input_data.get("query", "")
         request_type = input_data.get("type", "query")
         chunks = input_data.get("chunks", [])
         config_data = input_data.get("config", {})
