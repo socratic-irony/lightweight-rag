@@ -14,11 +14,42 @@ from lightweight_rag.io_pdf import (
     chunk_text,
     clean_text,
     create_sliding_windows,
+    deduplicate_chunks,
     extract_pdf_pages,
     is_text_quality_good,
     normalize_text,
     split_into_sentences,
+    _update_diagnostics,
 )
+from lightweight_rag.models import Chunk, DocMeta
+import json
+
+
+class TestDiagnostics:
+    """Test diagnostics file updates."""
+
+    def test_update_diagnostics_atomic(self, tmp_path):
+        """Test that diagnostics are written correctly and provide valid JSON."""
+        with patch('lightweight_rag.index.CACHE_DIR', tmp_path):
+            diag_path = tmp_path / "warmup_diagnostics.json"
+            
+            # 1. Test basic update
+            _update_diagnostics("testing", 5, 10)
+            assert diag_path.exists()
+            with open(diag_path, 'r') as f:
+                data = json.load(f)
+            assert data["phase"] == "testing"
+            assert data["processed_pdfs"] == 5
+            assert data["total_pdfs"] == 10
+            assert data["percent"] == 50.0
+
+            # 2. Test update with warnings
+            warnings = ["Warning 1", "Warning 2"]
+            _update_diagnostics("warning_phase", 1, 1, warnings=warnings)
+            with open(diag_path, 'r') as f:
+                data = json.load(f)
+            assert data["phase"] == "warning_phase"
+            assert data["warnings"] == warnings
 
 
 class TestTextQuality:
@@ -293,11 +324,12 @@ class TestPDFExtraction:
 
     def test_extract_pdf_malformed(self):
         """Test extraction with malformed PDF."""
-        with patch("lightweight_rag.io_pdf.fitz.open") as mock_open:
-            mock_open.side_effect = Exception("Malformed PDF")
+        with patch("os.path.exists", return_value=True):
+            with patch("lightweight_rag.io_pdf.fitz.open") as mock_open:
+                mock_open.side_effect = Exception("Malformed PDF")
 
-            result = extract_pdf_pages("fake.pdf")
-            assert result == []
+                result = extract_pdf_pages("fake.pdf")
+                assert result == []
 
     def test_extract_pdf_pages_quality_fallback(self):
         """Test that extraction falls back to alternative method on poor quality."""
@@ -319,11 +351,12 @@ class TestPDFExtraction:
         mock_doc.__enter__ = lambda self: mock_doc
         mock_doc.__exit__ = lambda self, *args: None
 
-        with patch("lightweight_rag.io_pdf.fitz.open", return_value=mock_doc):
-            pages = extract_pdf_pages("test.pdf")
-            assert len(pages) == 1
-            # Should have attempted alternative extraction
-            assert mock_page.get_textpage.called or mock_page.get_text.called
+        with patch("os.path.exists", return_value=True):
+            with patch("lightweight_rag.io_pdf.fitz.open", return_value=mock_doc):
+                pages = extract_pdf_pages("test.pdf")
+                assert len(pages) == 1
+                # Should have attempted alternative extraction
+                assert mock_page.get_textpage.called or mock_page.get_text.called
 
 
 class TestChunkingConfigurations:
@@ -417,3 +450,31 @@ class TestPrintIfNotQuiet:
         with patch("builtins.print") as mock_print:
             _print_if_not_quiet("Test message", {"_quiet_mode": False})
             mock_print.assert_called()
+
+class TestDeduplication:
+    """Test chunk deduplication."""
+
+    def test_deduplicate_exact_duplicates(self):
+        """Test that exact duplicate chunks are removed."""
+        meta = DocMeta(title="Test", authors=[], year=2023, doi=None, source="test.pdf", citekey="test2023")
+        chunks = [
+            Chunk(doc_id=1, source="test.pdf", page=1, text="Duplicate text", meta=meta),
+            Chunk(doc_id=1, source="test.pdf", page=2, text="Unique text", meta=meta),
+            Chunk(doc_id=1, source="test.pdf", page=3, text="Duplicate text", meta=meta),
+        ]
+        deduped = deduplicate_chunks(chunks)
+        assert len(deduped) == 2
+        assert deduped[0].text == "Duplicate text"
+        assert deduped[1].text == "Unique text"
+
+    def test_deduplicate_near_duplicates(self):
+        """Test that near-duplicate chunks (diff whitespace/case) are removed."""
+        meta = DocMeta(title="Test", authors=[], year=2023, doi=None, source="test.pdf", citekey="test2023")
+        chunks = [
+            Chunk(doc_id=1, source="test.pdf", page=1, text="Hello World", meta=meta),
+            Chunk(doc_id=1, source="test.pdf", page=2, text="hello world  ", meta=meta),
+            Chunk(doc_id=1, source="test.pdf", page=3, text="HELLO WORLD!!!", meta=meta),
+        ]
+        deduped = deduplicate_chunks(chunks)
+        assert len(deduped) == 1
+        assert deduped[0].text == "Hello World"

@@ -5,8 +5,35 @@ import pytest
 from unittest.mock import patch, MagicMock
 from lightweight_rag.performance import (
     seed_numpy, get_optimal_worker_count, create_api_semaphore,
-    deterministic_sort_key, sort_results_deterministically
+    deterministic_sort_key, sort_results_deterministically,
+    process_with_thread_pool
 )
+
+
+class TestThreadPool:
+    """Test the thread pool utility with progress callbacks."""
+
+    def test_process_with_thread_pool_progress(self):
+        """Test that the on_progress callback is called correctly."""
+        items = list(range(10))
+        processed = []
+        progress_calls = []
+
+        def worker(item):
+            return item * 2
+
+        def on_progress(completed, total):
+            progress_calls.append((completed, total))
+
+        results = process_with_thread_pool(worker, items, max_workers=2, on_progress=on_progress)
+
+        assert results == [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+        assert len(progress_calls) == 10
+        # Final call should be (10, 10)
+        assert progress_calls[-1] == (10, 10)
+        # Ensure they are incremental
+        completed_counts = [c for c, t in progress_calls]
+        assert sorted(completed_counts) == completed_counts
 
 
 class TestNumpySeeding:

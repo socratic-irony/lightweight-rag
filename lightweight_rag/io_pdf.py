@@ -1,5 +1,6 @@
 """PDF text extraction and document processing."""
 
+import hashlib
 import os
 import re
 import sys
@@ -376,11 +377,31 @@ def extract_pdf_pages(pdf_path: str) -> List[Dict[str, Any]]:
     """
     pages: List[Dict[str, Any]] = []
     try:
+        if not os.path.exists(pdf_path):
+            print(f"Error: PDF file not found at {pdf_path}")
+            return []
+
         with _FITZ_LOCK:
             # Use context manager to ensure deterministic close ordering
             with fitz.open(pdf_path) as doc:
-                for page_num in range(len(doc)):
-                    page = doc.load_page(page_num)
+                if doc.is_encrypted:
+                    try:
+                        doc.authenticate("")
+                    except Exception:
+                        print(f"Skipping encrypted PDF: {pdf_path}")
+                        return []
+                
+                num_pages = len(doc)
+                if num_pages == 0:
+                    print(f"Skipping empty PDF: {pdf_path}")
+                    return []
+                    
+                for page_num in range(num_pages):
+                    try:
+                        page = doc.load_page(page_num)
+                    except Exception as pe:
+                        print(f"Error loading page {page_num} in {pdf_path}: {pe}")
+                        continue
 
                     # Try different extraction methods if quality is poor
                     raw_text = page.get_text()
@@ -447,6 +468,41 @@ def _discover_pdf_files(pdf_dir: Path) -> List[Path]:
     if not pdf_files:
         print(f"No PDFs found in {pdf_dir}")
     return pdf_files
+
+
+def list_collections(base_pdf_dir: Path) -> List[Dict[str, Any]]:
+    """
+    List subdirectories in the base PDF directory that contain PDFs.
+    Returns a list of dicts with 'id', 'name', 'path', and 'count'.
+    """
+    collections = []
+    
+    if not base_pdf_dir.exists():
+        return collections
+
+    # Add root as default collection
+    root_pdfs = list(base_pdf_dir.glob("*.pdf"))
+    if root_pdfs:
+        collections.append({
+            "id": "root",
+            "name": "Default (Root)",
+            "path": ".",
+            "count": len(root_pdfs)
+        })
+        
+    # Check subdirectories
+    for item in sorted(base_pdf_dir.iterdir()):
+        if item.is_dir() and not item.name.startswith("."):
+            pdfs = list(item.glob("*.pdf"))
+            if pdfs:
+                collections.append({
+                    "id": item.name,
+                    "name": item.name.replace("_", " ").capwords() if hasattr("", "capwords") else item.name.replace("_", " ").title(),
+                    "path": item.name,
+                    "count": len(pdfs)
+                })
+                    
+    return collections
 
 
 def _enrich_chunk_with_bibliography(
@@ -709,6 +765,8 @@ async def _enrich_citations_parallel(
         return doi_meta_map
 
     print(f"Fetching metadata for {len(dois_to_fetch)} DOIs...")
+    
+    warnings = []
 
     # Use configuration or defaults
     if citation_config is None:
@@ -718,6 +776,23 @@ async def _enrich_citations_parallel(
             "unpaywall": False,
             "unpaywall_email": None,
         }
+    
+    # Check for missing Unpaywall email
+    if citation_config.get("unpaywall") and not citation_config.get("unpaywall_email"):
+        warnings.append("Unpaywall enabled but no email provided. Skipping Unpaywall.")
+    
+    # Check if any source is enabled
+    has_source = any([
+        citation_config.get("crossref", True),
+        citation_config.get("openalex", True),
+        citation_config.get("unpaywall") and citation_config.get("unpaywall_email")
+    ])
+    
+    if not has_source:
+        warnings.append("No DOI metadata sources enabled. DOI enrichment will be skipped.")
+
+    if warnings:
+        _update_diagnostics("doi_fetch", 0, len(dois_to_fetch), warnings=warnings)
 
     async with httpx.AsyncClient() as client:
         enriched_results = await batch_enriched_lookup(
@@ -1141,6 +1216,32 @@ def _collect_dois_from_pdfs(
     return dois_to_fetch
 
 
+def deduplicate_chunks(chunks: List[Chunk]) -> List[Chunk]:
+    """
+    Remove near-duplicate chunks by hashing normalized text.
+    Keeps the first occurrence of each unique text.
+    """
+    seen_hashes = set()
+    unique_chunks = []
+
+    for chunk in chunks:
+        # Normalize: lowercase, strip, remove non-alphanumeric for stability
+        normalized = re.sub(r"\W+", "", chunk.text.lower())
+        if not normalized:
+            continue
+
+        chunk_hash = hashlib.md5(normalized.encode()).hexdigest()
+        if chunk_hash not in seen_hashes:
+            seen_hashes.add(chunk_hash)
+            unique_chunks.append(chunk)
+
+    diff = len(chunks) - len(unique_chunks)
+    if diff > 0:
+        print(f"  [Deduplication] Removed {diff} duplicate/near-duplicate chunks.")
+
+    return unique_chunks
+
+
 def _log_processing_status(
     files_to_process: List[Path],
     new_files: List[Path],
@@ -1171,9 +1272,38 @@ def _log_processing_status(
         print(f"Processing {len(pdf_files)} PDFs (initial build)...")
 
 
+def _update_diagnostics(phase: str, completed: int, total: int, warnings: Optional[List[str]] = None):
+    """Update warmup diagnostics file."""
+    from .index import CACHE_DIR
+    import json as _json
+    import tempfile
+    import os
+    try:
+        diag_path = CACHE_DIR / "warmup_diagnostics.json"
+        diag_path.parent.mkdir(parents=True, exist_ok=True)
+        diagnostics = {
+            "phase": phase,
+            "total_pdfs": total,
+            "processed_pdfs": completed,
+            "percent": round((completed / total) * 100, 1) if total > 0 else 0
+        }
+        if warnings:
+            diagnostics["warnings"] = warnings
+        
+        # Atomic write: write to temp file then rename
+        with tempfile.NamedTemporaryFile('w', dir=str(diag_path.parent), delete=False, encoding='utf-8') as tf:
+            _json.dump(diagnostics, tf)
+            temp_name = tf.name
+        
+        os.replace(temp_name, str(diag_path))
+    except Exception:
+        pass
+
+
 def _extract_pdf_text_parallel(
     files_to_process_list: List[Path],
     max_workers: Optional[int],
+    warnings: Optional[List[str]] = None,
 ) -> List[List[Dict[str, Any]]]:
     """Extract text from PDFs in parallel.
 
@@ -1185,6 +1315,8 @@ def _extract_pdf_text_parallel(
         List of extracted page data for each PDF
     """
     from .performance import get_optimal_worker_count, process_with_thread_pool
+    from .index import CACHE_DIR
+    import json as _json
 
     if not files_to_process_list:
         return []
@@ -1192,15 +1324,21 @@ def _extract_pdf_text_parallel(
     if max_workers is None:
         max_workers = get_optimal_worker_count()
 
+    def on_progress(completed: int, total: int):
+        _update_diagnostics("extracting", completed, total, warnings=warnings)
+
     if max_workers > 1 and len(files_to_process_list) > 1:
         print(f"Using {max_workers} workers for PDF processing")
         return process_with_thread_pool(
-            extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers
+            extract_pdf_pages, [str(f) for f in files_to_process_list], max_workers, on_progress=on_progress
         )
     else:
-        return [
-            extract_pdf_pages(str(f)) for f in tqdm(files_to_process_list, desc="Processing PDFs")
-        ]
+        results = []
+        total = len(files_to_process_list)
+        for i, f in enumerate(tqdm(files_to_process_list, desc="Processing PDFs")):
+            results.append(extract_pdf_pages(str(f)))
+            on_progress(i + 1, total)
+        return results
 
 
 def _merge_with_cached_corpus(
@@ -1279,6 +1417,12 @@ async def build_corpus(
     chunking_config: Optional[dict] = None,
 ) -> List[Chunk]:
     """Build corpus by extracting text from all PDFs in directory."""
+    
+    if not pdf_dir.exists():
+        print(f"Error: PDF directory '{pdf_dir}' does not exist.")
+        return []
+        
+    print(f"Building corpus from: {pdf_dir}")
     from .index import (
         CHUNKING_HASH_KEY,
         MANIFEST_META_KEY,
@@ -1347,15 +1491,35 @@ async def build_corpus(
         for chunk in cached_corpus:
             if chunk.source not in files_to_process_basenames and chunk.meta.citekey:
                 existing_citekeys.add(chunk.meta.citekey)
+    
+    # Global warnings for this build process
+    active_warnings = []
+    if citation_config:
+        if citation_config.get("unpaywall") and not citation_config.get("unpaywall_email"):
+            active_warnings.append("Unpaywall enabled but no email provided. Skipping Unpaywall.")
+        
+        has_source = any([
+            citation_config.get("crossref", True),
+            citation_config.get("openalex", True),
+            citation_config.get("unpaywall") and citation_config.get("unpaywall_email")
+        ])
+        if not has_source:
+            active_warnings.append("No DOI metadata sources enabled. DOI enrichment will be skipped.")
 
     # Extract text from PDFs in parallel
-    pdf_data_list = _extract_pdf_text_parallel(files_to_process_list, max_workers)
+    pdf_data_list = _extract_pdf_text_parallel(files_to_process_list, max_workers, warnings=active_warnings)
+
+    # Update diagnostics for DOI phase
+    _update_diagnostics("doi_fetch", 0, len(files_to_process_list), warnings=active_warnings)
 
     # Collect DOIs and fetch metadata in parallel
     dois_to_fetch = _collect_dois_from_pdfs(files_to_process_list, pdf_data_list, citation_config)
     doi_meta_map = await _enrich_citations_parallel(
         dois_to_fetch, citation_config, cache_seconds, max_concurrent_api
     )
+
+    # Update diagnostics for Chunking phase
+    _update_diagnostics("chunking", 0, len(files_to_process_list), warnings=active_warnings)
 
     # Extract and chunk PDFs with enriched metadata
     new_corpus_chunks, matched_via_index, matched_via_doi, dropped_unknown = (
@@ -1374,7 +1538,7 @@ async def build_corpus(
     cached_chunks = _merge_with_cached_corpus(
         cached_corpus, files_to_process, pdf_files, removed_files
     )
-    final_corpus = cached_chunks + new_corpus_chunks
+    final_corpus = deduplicate_chunks(cached_chunks + new_corpus_chunks)
 
     # Load bibliography map for diagnostics
     biblio_map = {}

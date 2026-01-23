@@ -43,14 +43,27 @@ async def process_with_semaphore(
 
 
 def process_with_thread_pool(
-    func: Callable, items: List[Any], max_workers: Optional[int] = None
+    func: Callable, items: List[Any], max_workers: Optional[int] = None, on_progress: Optional[Callable[[int, int], None]] = None
 ) -> List[Any]:
     """Process items concurrently using ThreadPoolExecutor."""
     if max_workers is None:
         max_workers = get_optimal_worker_count()
 
+    results = [None] * len(items)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(func, items))
+        # Use submit instead of map to track progress
+        futures = {executor.submit(func, item): i for i, item in enumerate(items)}
+        completed = 0
+        total = len(items)
+        
+        from concurrent.futures import as_completed
+        for future in as_completed(futures):
+            index = futures[future]
+            results[index] = future.result()
+            completed += 1
+            if on_progress:
+                on_progress(completed, total)
+                
     return results
 
 
