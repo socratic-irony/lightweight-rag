@@ -153,7 +153,7 @@ class TestParallelExecution:
             
             mock_corpus.return_value = []  # Empty corpus
             mock_bm25.return_value = (MagicMock(), [])
-            mock_search.return_value = []  # Empty results
+            mock_search.return_value = [], {}  # Empty results and empty confidence
             
             # Run multiple queries concurrently
             tasks = [run_rag_pipeline(config, query) for query in queries]

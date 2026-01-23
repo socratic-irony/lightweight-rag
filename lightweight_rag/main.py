@@ -19,6 +19,69 @@ from .scoring import (
 )
 
 
+def calibrate_confidence(
+    scores: List[float],
+    runs: List[List[int]],
+    pool: List[int],
+    top_k: int = 8,
+) -> Dict[str, Any]:
+    """
+    Compute a confidence label (high/medium/low) based on score distributions
+    and stability across multiple ranking runs.
+    """
+    if not scores or not pool:
+        return {
+            "level": "low",
+            "score": 0.0,
+            "spread": 0.0,
+            "stability": 0.0,
+            "reason": "No results",
+        }
+
+    # 1. Score spread: top score vs median of the candidate pool
+    pool_scores = [scores[i] for i in pool]
+    top_score = max(pool_scores)
+
+    # Sort pool scores to find median
+    sorted_pool_scores = sorted(pool_scores, reverse=True)
+    median_score = sorted_pool_scores[len(sorted_pool_scores) // 2]
+
+    # Spread metric: how much does the top result stand out from the pack?
+    # We use a simple ratio-based stand-out factor
+    spread = (top_score - median_score) / (top_score + 1e-6) if top_score > 0 else 0
+
+    # 2. Stability across runs: overlap in top results across all runs
+    if not runs or len(runs) < 2:
+        stability = 0.5  # Neutral if only one run
+    else:
+        # Check agreement on the top_k results
+        top_sets = [set(run[:top_k]) for run in runs]
+
+        # Agreement: intersection / union of all top sets
+        intersection = set.intersection(*top_sets)
+        union = set.union(*top_sets)
+        stability = len(intersection) / len(union) if union else 0.0
+
+    # Combine metrics into a confidence score (0 to 1)
+    # Weights: spread is important for local distinction, stability for method agreement
+    # We cap spread at 0.5 (representing 50% gap from median) for the score contribution
+    confidence_score = (0.5 * min(1.0, spread * 2.0)) + (0.5 * stability)
+
+    if confidence_score > 0.75:
+        level = "high"
+    elif confidence_score > 0.4:
+        level = "medium"
+    else:
+        level = "low"
+
+    return {
+        "level": level,
+        "score": round(float(confidence_score), 3),
+        "spread": round(float(spread), 3),
+        "stability": round(float(stability), 3),
+    }
+
+
 def search_topk(
     corpus: List[Chunk],
     bm25: BM25Okapi,
@@ -41,16 +104,16 @@ def search_topk(
     bm25_query: Optional[str] = None,
     semantic_query: Optional[str] = None,
     **kwargs,  # Accept additional config parameters
-) -> List[Dict[str, Any]]:
+) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Main search function with RRF fusion of multiple ranking strategies.
 
-    Returns formatted results ready for display.
+    Returns (formatted results, confidence dictionary).
     """
     from .fusion import build_ranking_runs, fused_diversity_selection, rrf_fuse
 
     if not corpus:
-        return []
+        return [], {}
 
     # Build baseline BM25 + bonuses scores
     q_tokens = tokenize(query)
@@ -106,7 +169,12 @@ def search_topk(
     }
 
     # Build multiple ranking runs
-    runs = build_ranking_runs(query, corpus, bm25, tokenized, pool, scores, run_config, semantic_query=semantic_query)
+    runs = build_ranking_runs(
+        query, corpus, bm25, tokenized, pool, scores, run_config, semantic_query=semantic_query
+    )
+
+    # Calibrate confidence based on spread and run stability
+    confidence = calibrate_confidence(scores, runs, pool, top_k=k)
 
     # Apply RRF fusion if enabled and we have multiple runs
     if (
@@ -155,15 +223,17 @@ def search_topk(
         use_pandoc_as_primary,
     )
 
-    return final_results
+    return final_results, confidence
 
 
 async def _run_rag_pipeline_internal(
     cfg: Dict[str, Any], query: str
-) -> tuple[List[Dict[str, Any]], Optional[str], Optional[Dict[str, Any]]]:
+) -> tuple[
+    List[Dict[str, Any]], Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]]
+]:
     """
     Run the complete RAG pipeline with the given configuration and query.
-    Returns (results, summary).
+    Returns (results, summary, summary_debug, confidence).
     """
     from .performance import seed_numpy, sort_results_deterministically
 
@@ -185,7 +255,7 @@ async def _run_rag_pipeline_internal(
 
     if not corpus:
         print("No documents found or processed.")
-        return [], None
+        return [], None, None, None
 
     token_pattern = cfg["bm25"]["token_pattern"]
     k1 = cfg["bm25"]["k1"]
@@ -233,7 +303,7 @@ async def _run_rag_pipeline_internal(
     result_top_k = int(cfg["rerank"]["final_top_k"])
     search_k = max(result_top_k, summary_top_k) if summary_enabled else result_top_k
 
-    results = search_topk(
+    results, confidence = search_topk(
         corpus=corpus,
         bm25=bm25,
         tokenized=tokenized,
@@ -297,21 +367,26 @@ async def _run_rag_pipeline_internal(
         summary_debug["hyde_error"] = llm_client.last_hyde_debug.get("error")
         summary_debug["hyde_raw_response"] = llm_client.last_hyde_debug.get("raw_response")
 
-    return results[:result_top_k], summary, summary_debug
+    return results[:result_top_k], summary, summary_debug, confidence
 
 
 async def run_rag_pipeline(cfg: Dict[str, Any], query: str) -> List[Dict[str, Any]]:
     """
     Run the complete RAG pipeline with the given configuration and query.
     """
-    results, _summary, _summary_debug = await _run_rag_pipeline_internal(cfg, query)
+    results, _summary, _summary_debug, _confidence = await _run_rag_pipeline_internal(cfg, query)
     return results
 
 
 async def run_rag_pipeline_with_summary(cfg: Dict[str, Any], query: str) -> Dict[str, Any]:
     """Run the pipeline and return results plus summary."""
-    results, summary, summary_debug = await _run_rag_pipeline_internal(cfg, query)
-    return {"results": results, "summary": summary, "summary_debug": summary_debug}
+    results, summary, summary_debug, confidence = await _run_rag_pipeline_internal(cfg, query)
+    return {
+        "results": results,
+        "summary": summary,
+        "summary_debug": summary_debug,
+        "confidence": confidence,
+    }
 
 
 def query_pdfs(query: str, cfg: Dict[str, Any]) -> List[Dict[str, Any]]:

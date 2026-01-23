@@ -27,13 +27,14 @@ async def test_summary_uses_top_k(monkeypatch: pytest.MonkeyPatch) -> None:
             {"text": "one"},
             {"text": "two"},
             {"text": "three"},
-        ]
+        ], {"level": "high", "score": 1.0, "spread": 0.5, "stability": 1.0}
 
     captured = {}
 
     class StubLLM:
         def __init__(self, _cfg):
-            pass
+            self.last_summary_debug = None
+            self.last_hyde_debug = None
 
         def generate_hypothetical_answer(self, _query):
             return None

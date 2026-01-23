@@ -87,7 +87,7 @@ class TestBM25Construction:
                 
                 # Search for "machine learning"
                 query = "machine learning"
-                results = search_topk(
+                results, confidence = search_topk(
                     corpus, bm25, tokenized, query, k=4,
                     prox_window=0, prox_lambda=0, ngram_lambda=0,
                     diversity=False, semantic=False
@@ -185,7 +185,7 @@ class TestSearchFeatures:
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search with diversity enabled (max 1 per document)
-                results_diverse = search_topk(
+                results_diverse, _ = search_topk(
                     corpus, bm25, tokenized, "machine learning", k=6,
                     diversity=True, max_per_doc=1
                 )
@@ -214,7 +214,7 @@ class TestSearchFeatures:
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search with proximity bonus
-                results = search_topk(
+                results, _ = search_topk(
                     corpus, bm25, tokenized, "machine learning", k=2,
                     prox_window=30, prox_lambda=0.5
                 )
@@ -240,7 +240,7 @@ class TestSearchFeatures:
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Search with n-gram bonus
-                results = search_topk(
+                results, _ = search_topk(
                     corpus, bm25, tokenized, "machine learning", k=2,
                     ngram_lambda=0.3
                 )
@@ -285,7 +285,7 @@ class TestEndToEndIntegration:
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Perform search with all features
-                results = search_topk(
+                results, _ = search_topk(
                     corpus, bm25, tokenized, "machine learning method", 
                     k=3, prox_window=30, prox_lambda=0.2, ngram_lambda=0.1,
                     diversity=True, max_per_doc=3, semantic=False
@@ -343,9 +343,9 @@ class TestErrorHandling:
                 bm25, tokenized = build_bm25(corpus)
                 
                 # Test with empty query
-                results = search_topk(corpus, bm25, tokenized, "", k=1)
+                results, _ = search_topk(corpus, bm25, tokenized, "", k=1)
                 # Should not crash, may return empty results or all results
                 
                 # Test with special characters only
-                results = search_topk(corpus, bm25, tokenized, "!@#$%", k=1)
+                results, _ = search_topk(corpus, bm25, tokenized, "!@#$%", k=1)
                 # Should not crash

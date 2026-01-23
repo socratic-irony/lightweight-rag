@@ -167,6 +167,14 @@ class LLMClient:
         if not self.enabled:
             return None
 
+        prompt = (
+            f"Write a short, concise hypothetical passage that answers the following question. "
+            f"Focus on including relevant technical keywords and terminology. "
+            f"Do not explain what you are doing, just write the passage.\n\n"
+            f"Question: {query}\n\n"
+            f"Passage:"
+        )
+
         cache_key = _cache_key(
             {
                 "model": self.model,
@@ -189,14 +197,6 @@ class LLMClient:
                 else "",
             }
             return cached
-
-        prompt = (
-            f"Write a short, concise hypothetical passage that answers the following question. "
-            f"Focus on including relevant technical keywords and terminology. "
-            f"Do not explain what you are doing, just write the passage.\n\n"
-            f"Question: {query}\n\n"
-            f"Passage:"
-        )
 
         try:
             passages = self._chat_completion(prompt, self.max_tokens, self.n)

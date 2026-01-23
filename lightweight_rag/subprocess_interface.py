@@ -64,6 +64,7 @@ def create_success_response(
     query: str,
     summary: Optional[str] = None,
     summary_debug: Optional[Dict[str, Any]] = None,
+    confidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create a standardized success response."""
     return {
@@ -72,6 +73,7 @@ def create_success_response(
         "results": results,
         "summary": summary,
         "summary_debug": summary_debug,
+        "confidence": confidence,
         "error": None,
         "count": len(results),
     }
@@ -230,6 +232,7 @@ async def process_query(query: str, config: Dict[str, Any], request_type: str = 
                         query,
                         output.get("summary"),
                         output.get("summary_debug"),
+                        confidence=output.get("confidence"),
                     )
         finally:
             sys.stdout = original_stdout
