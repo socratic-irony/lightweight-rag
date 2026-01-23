@@ -87,6 +87,7 @@ class TestOpenAlexAPIErrors:
         """Test OpenAlex response with missing optional fields."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_response = MagicMock()
+        mock_response.status_code = 200
         # Minimal response with no venue, publisher, concepts, etc.
         mock_response.json.return_value = {}
         mock_response.raise_for_status = MagicMock()
@@ -153,6 +154,7 @@ class TestBatchProcessingEdgeCases:
         """Test batch processing with single DOI."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"message": {"title": ["Test"], "author": []}}
         mock_response.raise_for_status = MagicMock()
         mock_client.get = AsyncMock(return_value=mock_response)
@@ -203,6 +205,7 @@ class TestBatchProcessingEdgeCases:
             
             current_concurrent -= 1
             mock_response = MagicMock()
+            mock_response.status_code = 200
             mock_response.json.return_value = {"message": {"title": ["Test"], "author": []}}
             mock_response.raise_for_status = MagicMock()
             return mock_response
@@ -284,6 +287,7 @@ class TestMetadataEnrichment:
         
         async def mock_get(url, timeout):
             mock_response = MagicMock()
+            mock_response.status_code = 200
             if "crossref" in url:
                 # Crossref returns basic metadata
                 mock_response.json.return_value = {
@@ -337,6 +341,7 @@ class TestUnpaywallAPI:
         """Test successful Unpaywall API response."""
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "oa_status": "gold",
             "best_oa_location": {

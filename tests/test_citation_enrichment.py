@@ -19,6 +19,7 @@ class TestOpenAlexAPI:
     async def test_openalex_successful_response(self):
         """Test successful OpenAlex API response parsing."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "host_venue": {
                 "display_name": "Nature",
@@ -50,6 +51,7 @@ class TestOpenAlexAPI:
     async def test_openalex_primary_location_fallback(self):
         """Test fallback to primary_location for venue and pdf_url."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "primary_location": {
                 "source": {"display_name": "arXiv"},
@@ -84,6 +86,7 @@ class TestUnpaywallAPI:
     async def test_unpaywall_successful_response(self):
         """Test successful Unpaywall API response parsing."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "is_oa": True,
             "best_oa_location": {
@@ -103,6 +106,7 @@ class TestUnpaywallAPI:
     async def test_unpaywall_no_oa_available(self):
         """Test Unpaywall response when no OA is available."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "is_oa": False,
             "best_oa_location": None

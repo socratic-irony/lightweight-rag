@@ -25,7 +25,7 @@ def get_default_config() -> Dict[str, Any]:
             "min_readable_ratio": 0.5,
         },
         "bm25": {
-            "k1": 1.5,
+            "k1": 1.4,
             "b": 0.75,
             "build_top_k": 300,
             "pool_size": 200,

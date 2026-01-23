@@ -39,6 +39,9 @@ async def test_summary_uses_top_k(monkeypatch: pytest.MonkeyPatch) -> None:
         def generate_hypothetical_answer(self, _query):
             return None
 
+        def generate_hypothetical_answers(self, _query):
+            return []
+
         def generate_summary(self, _query, chunks, max_tokens=None):
             captured["chunks"] = chunks
             captured["max_tokens"] = max_tokens
