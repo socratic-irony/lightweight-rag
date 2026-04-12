@@ -260,8 +260,9 @@ async def _run_rag_pipeline_internal(
 
     from .performance import seed_numpy, sort_results_deterministically
 
-    # Work on a shallow copy so callers' config is never mutated.
-    cfg = copy.deepcopy(cfg)
+    # Shallow-copy the top level and deep-copy only the sub-dict that will be mutated
+    # (cfg["llm"] receives "hyde_queries" during execution).
+    cfg = {**cfg, "llm": copy.deepcopy(cfg.get("llm", {}))}
 
     if cfg["performance"]["deterministic"] and cfg["performance"]["numpy_seed"]:
         seed_numpy(cfg["performance"]["numpy_seed"])

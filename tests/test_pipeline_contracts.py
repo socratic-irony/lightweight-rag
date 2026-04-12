@@ -19,7 +19,6 @@ class TestConfigImmutabilityContract:
         """Return a minimal config with LLM enabled so the hyde_queries path is exercised."""
         cfg = get_default_config()
         cfg["llm"]["enabled"] = True
-        cfg["llm"]["hyde_queries_before"] = "sentinel"
         return cfg
 
     def test_caller_config_not_mutated_after_pipeline(self, monkeypatch):

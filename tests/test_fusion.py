@@ -207,10 +207,9 @@ class TestHeuristicWeightsPropagation:
         # This would fail or produce wrong ranks if list.index() were still used
         runs = build_ranking_runs("machine learning", corpus, bm25, [], pool, scores, config)
         heuristic_run = runs[-1]  # last run added is heuristic
-        # ranks must be sequential integers matching enumerate order
-        for expected_rank, idx in enumerate(pool[: len(heuristic_run)]):
-            pass  # just verifying no exception is raised
+        # All heuristic run indices must be unique (no duplicates from index() mis-lookup)
         assert len(heuristic_run) == len(corpus)
+        assert len(set(heuristic_run)) == len(heuristic_run), "Duplicate indices in heuristic run"
 
 
 class TestMMRPropagation:
