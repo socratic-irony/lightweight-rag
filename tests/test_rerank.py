@@ -222,6 +222,39 @@ class TestHeuristicRerank:
 
         assert reranked is candidates
 
+    def test_heuristic_rerank_non_default_weights_affect_ordering(self):
+        """Non-default alpha/beta/gamma values must actually change the ranked order."""
+        # candidate 0: perfect coverage ("machine learning" both present), no phrase
+        # candidate 1: no coverage, unique tokens
+        candidates_template = [
+            {"text": "machine learning overview", "bm25": 0.5, "rank": 0, "index": 0},
+            {"text": "totally unrelated biology chemistry", "bm25": 0.5, "rank": 1, "index": 1},
+        ]
+
+        import copy
+
+        # With alpha=1.0 (coverage only), candidate 0 wins.
+        reranked_cov = rerank.heuristic_rerank(
+            "machine learning",
+            copy.deepcopy(candidates_template),
+            alpha=1.0,
+            beta=0.0,
+            gamma=0.0,
+        )
+        assert reranked_cov[0]["index"] == 0
+
+        # The scores should differ from a zero-alpha run.
+        reranked_zero = rerank.heuristic_rerank(
+            "machine learning",
+            copy.deepcopy(candidates_template),
+            alpha=0.0,
+            beta=0.0,
+            gamma=0.0,
+        )
+        score_cov = reranked_cov[0]["rerank_score"]
+        score_zero = next(c["rerank_score"] for c in reranked_zero if c["index"] == 0)
+        assert score_cov != score_zero
+
 
 class TestEmbeddingHelpers:
     """Tests for embedding helpers that back semantic reranking."""

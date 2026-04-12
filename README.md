@@ -43,6 +43,21 @@ A fast, minimal PDF → BM25 → top-k retrieval system with smart caching, quer
 
 ### Basic Usage
 
+**When installed as a package** (the `lightweight-rag` console script wraps the JSON/subprocess interface and also supports direct queries):
+
+```bash
+# Search your PDF collection
+lightweight-rag --query "machine learning algorithms"
+
+# Use a specific directory
+lightweight-rag --pdf_dir ./research_papers --query "deep learning" --pretty
+
+# JSON subprocess mode (for Node.js integration): reads a JSON request from stdin
+echo '{"query": "neural networks", "config": {"paths": {"pdf_dir": "./pdfs"}}}' | lightweight-rag
+```
+
+**Running directly from source** (`rag.py` is the full human-facing CLI with all tuning flags):
+
 ```bash
 # Search your PDF collection
 python rag.py --query "machine learning algorithms"
@@ -118,7 +133,7 @@ bonuses:
 
 rerank:
   semantic:
-    enabled: true      # Requires sentence-transformers
+    enabled: false     # Off by default; enable with sentence-transformers installed
     model: "sentence-transformers/all-MiniLM-L6-v2"
   final_top_k: 8      # Results to return
 
@@ -138,12 +153,19 @@ performance:
 ```
 
 ### Environment Variables
-Override any setting with environment variables:
+A fixed set of settings can be overridden with environment variables (not all settings are supported):
 ```bash
 export RAG_PATHS_PDF_DIR="./my_papers"
+export RAG_PATHS_CACHE_DIR=".rag_cache"
 export RAG_BM25_K1="2.0"
+export RAG_BM25_B="0.75"
 export RAG_PRF_ENABLED="true"
+export RAG_PRF_FB_DOCS="6"
+export RAG_PRF_FB_TERMS="10"
+export RAG_RERANK_FINAL_TOP_K="8"
 ```
+
+> **Note:** Only the variables listed above are supported. For other settings, edit `config.yaml` directly.
 
 ### Command Line Options
 ```bash

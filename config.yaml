@@ -1,6 +1,6 @@
 paths:
   pdf_dir: "pdfs"
-  cache_dir: ".raq_cache"
+  cache_dir: ".rag_cache"
   crossref_email: null  # optional; some APIs accept mailto
 
 indexing:

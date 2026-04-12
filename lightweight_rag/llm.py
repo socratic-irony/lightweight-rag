@@ -13,7 +13,7 @@ _dotenv_path = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(dotenv_path=_dotenv_path, override=False)
 
 
-_hyde_cache: Dict[str, str] = {}
+_hyde_cache: Dict[str, Any] = {}
 _summary_cache: Dict[str, str] = {}
 
 

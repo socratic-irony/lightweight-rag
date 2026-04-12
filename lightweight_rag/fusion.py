@@ -128,25 +128,29 @@ def build_ranking_runs(
     if config.get("rerank", {}).get("heuristic", {}).get("enabled", True):
         from .rerank import heuristic_rerank
 
+        heuristic_cfg = config.get("rerank", {}).get("heuristic", {})
         # Prepare candidates for heuristic reranking
-        heuristic_topn = min(
-            config.get("rerank", {}).get("heuristic", {}).get("topn", 150), len(pool)
-        )
+        heuristic_topn = min(heuristic_cfg.get("topn", 150), len(pool))
         candidates_for_heuristic = pool[:heuristic_topn]
 
-        candidate_dicts = []
-        for i in candidates_for_heuristic:
-            candidate_dicts.append(
-                {
-                    "text": corpus[i].text,
-                    "bm25": baseline_scores[i],
-                    "rank": candidates_for_heuristic.index(i),
-                    "index": i,
-                }
-            )
+        candidate_dicts = [
+            {
+                "text": corpus[i].text,
+                "bm25": baseline_scores[i],
+                "rank": rank,
+                "index": i,
+            }
+            for rank, i in enumerate(candidates_for_heuristic)
+        ]
 
-        # Apply heuristic reranking
-        reranked_candidates = heuristic_rerank(query, candidate_dicts)
+        # Apply heuristic reranking with configured weights
+        reranked_candidates = heuristic_rerank(
+            query,
+            candidate_dicts,
+            alpha=heuristic_cfg.get("alpha", 0.6),
+            beta=heuristic_cfg.get("beta", 0.3),
+            gamma=heuristic_cfg.get("gamma", 0.1),
+        )
 
         # Extract reranked ordering
         run_heuristic = [c["index"] for c in reranked_candidates]

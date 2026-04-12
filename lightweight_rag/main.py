@@ -176,12 +176,16 @@ def search_topk(
     # Build configuration for ranking runs
     run_config = {
         "prf": kwargs.get("prf_config", {}),
-        "rerank": {"semantic": {"enabled": semantic, "topn": semantic_topn}},
+        "rerank": {
+            "semantic": {"enabled": semantic, "topn": semantic_topn},
+            "heuristic": kwargs.get("heuristic_config", {}),
+        },
         "fusion": fusion_config.get("fusion", {}) if fusion_config else {},
         "diversity": {
             "enabled": diversity,
             "per_doc_penalty": div_lambda,
             "max_per_doc": max_per_doc,
+            "mmr": kwargs.get("mmr_config", {}),
         },
     }
 
@@ -252,7 +256,12 @@ async def _run_rag_pipeline_internal(
     Run the complete RAG pipeline with the given configuration and query.
     Returns (results, summary, summary_debug, confidence).
     """
+    import copy
+
     from .performance import seed_numpy, sort_results_deterministically
+
+    # Work on a shallow copy so callers' config is never mutated.
+    cfg = copy.deepcopy(cfg)
 
     if cfg["performance"]["deterministic"] and cfg["performance"]["numpy_seed"]:
         seed_numpy(cfg["performance"]["numpy_seed"])
@@ -291,21 +300,20 @@ async def _run_rag_pipeline_internal(
         llm_client = LLMClient(cfg["llm"])
         print("Generating hypothetical answers for query expansion...")
         hyde_passages = llm_client.generate_hypothetical_answers(query)
-        
+
         if hyde_passages:
             print(f"[HyDE] Generated {len(hyde_passages)} hypothetical passages.")
-            
+
             # Use joined passages for primary expansion if enabled
             hypothetical_joined = " ".join(hyde_passages)
             if cfg["llm"].get("use_for_bm25", True):
                 bm25_query = f"{query} {hypothetical_joined}"
-            
+
             if cfg["llm"].get("use_for_semantic", False):
                 semantic_query = f"{query} {hypothetical_joined}"
-            
-            # If multiple passages generated, we can pass them as a list for diversity runs
+
+            # Pass HyDE passages as local runtime state (not mutating caller config).
             if len(hyde_passages) > 1:
-                # We'll pass the list via hyde_queries in config or as a special param
                 cfg["llm"]["hyde_queries"] = hyde_passages
 
     if cfg["prf"]["enabled"]:
@@ -361,6 +369,8 @@ async def _run_rag_pipeline_internal(
         use_pandoc_as_primary=cfg["citations"].get("pandoc_as_primary", False),
         fusion_config=cfg,
         prf_config=cfg["prf"],
+        mmr_config=cfg["diversity"].get("mmr", {}),
+        heuristic_config=cfg["rerank"].get("heuristic", {}),
     )
 
     if cfg["performance"]["deterministic"]:
