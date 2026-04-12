@@ -14,7 +14,7 @@ def get_default_config() -> Dict[str, Any]:
     return {
         "paths": {
             "pdf_dir": "pdfs",
-            "cache_dir": ".raq_cache",
+            "cache_dir": ".rag_cache",
             "crossref_email": None,
         },
         "indexing": {
@@ -32,7 +32,7 @@ def get_default_config() -> Dict[str, Any]:
             "token_pattern": "[A-Za-z0-9]+",
         },
         "llm": {
-            "enabled": True,
+            "enabled": False,
             "provider": "openrouter",
             "base_url": "https://openrouter.ai/api/v1",
             "model": "openai/gpt-5-mini",
@@ -46,7 +46,7 @@ def get_default_config() -> Dict[str, Any]:
             "use_for_bm25": True,
             "use_for_semantic": True,
             "summary": {
-                "enabled": True,
+                "enabled": False,
                 "top_k": 25,
                 "max_tokens": 10000,
                 "debug": True,
@@ -102,11 +102,11 @@ def get_default_config() -> Dict[str, Any]:
                 "gamma": 0.1,
             },
             "semantic": {
-                "enabled": True,
+                "enabled": False,
                 "model": "sentence-transformers/all-MiniLM-L6-v2",
                 "topn": 80,
                 "ann": {
-                    "enabled": True,
+                    "enabled": False,
                     "provider": "faiss",
                     "topn": 200,
                 },
@@ -151,6 +151,10 @@ def get_default_config() -> Dict[str, Any]:
     }
 
 
+_LEGACY_CACHE_DIR = ".raq_cache"
+_CANONICAL_CACHE_DIR = ".rag_cache"
+
+
 def load_config(path: str = "config.yaml") -> Dict[str, Any]:
     """Load configuration from file with fallback to defaults."""
     cfg = get_default_config()
@@ -163,6 +167,16 @@ def load_config(path: str = "config.yaml") -> Dict[str, Any]:
             cfg = merge_configs(cfg, file_cfg)
         except Exception as e:
             print(f"Warning: Failed to load config file {path}: {e}")
+
+    # Backward-compatible migration: warn when the old typo path is still in use.
+    cache_dir = cfg.get("paths", {}).get("cache_dir", "")
+    if cache_dir == _LEGACY_CACHE_DIR:
+        print(
+            f"Warning: cache_dir is set to '{_LEGACY_CACHE_DIR}' (legacy typo). "
+            f"Migrating to canonical path '{_CANONICAL_CACHE_DIR}'. "
+            "Update your config.yaml to silence this warning."
+        )
+        cfg["paths"]["cache_dir"] = _CANONICAL_CACHE_DIR
 
     return cfg
 

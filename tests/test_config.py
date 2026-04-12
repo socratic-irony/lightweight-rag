@@ -272,3 +272,100 @@ class TestConfigValidation:
             # This should raise an exception with invalid number conversion
             with pytest.raises(ValueError):
                 apply_env_vars(config)
+
+
+class TestCachePathRegression:
+    """Regression tests for cache-path defaults (P0-1)."""
+
+    def test_default_cache_dir_is_canonical(self):
+        """Default cache_dir must be .rag_cache (not the old typo .raq_cache)."""
+        cfg = get_default_config()
+        assert cfg["paths"]["cache_dir"] == ".rag_cache"
+
+    def test_legacy_typo_triggers_migration_warning(self, capsys):
+        """Loading a config that contains the old .raq_cache path should warn and migrate."""
+        config_data = {"paths": {"cache_dir": ".raq_cache"}}
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_file = f.name
+
+        try:
+            result = load_config(temp_file)
+            captured = capsys.readouterr()
+            assert result["paths"]["cache_dir"] == ".rag_cache"
+            assert ".raq_cache" in captured.out
+        finally:
+            os.unlink(temp_file)
+
+    def test_canonical_path_produces_no_warning(self, capsys):
+        """A config already using .rag_cache must not emit a migration warning."""
+        config_data = {"paths": {"cache_dir": ".rag_cache"}}
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_file = f.name
+
+        try:
+            result = load_config(temp_file)
+            captured = capsys.readouterr()
+            assert result["paths"]["cache_dir"] == ".rag_cache"
+            assert ".raq_cache" not in captured.out
+        finally:
+            os.unlink(temp_file)
+
+
+class TestDefaultLightweightProfile:
+    """Regression tests ensuring the default profile is offline-friendly (P1-5)."""
+
+    def test_llm_disabled_by_default(self):
+        """LLM must be disabled so a fresh install works without API keys."""
+        cfg = get_default_config()
+        assert cfg["llm"]["enabled"] is False
+
+    def test_llm_summary_disabled_by_default(self):
+        """LLM summary must be disabled by default."""
+        cfg = get_default_config()
+        assert cfg["llm"]["summary"]["enabled"] is False
+
+    def test_semantic_rerank_disabled_by_default(self):
+        """Semantic reranking must be disabled by default to avoid heavyweight deps."""
+        cfg = get_default_config()
+        assert cfg["rerank"]["semantic"]["enabled"] is False
+
+    def test_ann_disabled_by_default(self):
+        """ANN index must be disabled by default."""
+        cfg = get_default_config()
+        assert cfg["rerank"]["semantic"]["ann"]["enabled"] is False
+
+
+class TestEnvVarContract:
+    """Tests for the documented env-var contract (P1-6)."""
+
+    @patch.dict(os.environ, {"RAG_PATHS_CACHE_DIR": "/tmp/my_cache"})
+    def test_cache_dir_env_override(self):
+        cfg = {"paths": {"cache_dir": ".rag_cache"}}
+        result = apply_env_vars(cfg)
+        assert result["paths"]["cache_dir"] == "/tmp/my_cache"
+
+    @patch.dict(os.environ, {"RAG_BM25_B": "0.5"})
+    def test_bm25_b_env_override(self):
+        cfg = {"bm25": {"b": 0.75}}
+        result = apply_env_vars(cfg)
+        assert result["bm25"]["b"] == 0.5
+
+    @patch.dict(os.environ, {"RAG_PRF_FB_DOCS": "10"})
+    def test_prf_fb_docs_env_override(self):
+        cfg = {"prf": {"fb_docs": 6}}
+        result = apply_env_vars(cfg)
+        assert result["prf"]["fb_docs"] == 10
+
+    @patch.dict(os.environ, {"RAG_PRF_FB_TERMS": "20"})
+    def test_prf_fb_terms_env_override(self):
+        cfg = {"prf": {"fb_terms": 10}}
+        result = apply_env_vars(cfg)
+        assert result["prf"]["fb_terms"] == 20
+
+    @patch.dict(os.environ, {"RAG_RERANK_FINAL_TOP_K": "15"})
+    def test_final_top_k_env_override(self):
+        cfg = {"rerank": {"final_top_k": 8}}
+        result = apply_env_vars(cfg)
+        assert result["rerank"]["final_top_k"] == 15
